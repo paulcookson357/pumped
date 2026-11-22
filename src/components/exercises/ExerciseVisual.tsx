@@ -66,7 +66,11 @@ export function ExerciseVisual({
 
   if (size === "thumb") {
     return (
-      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+      <div
+        className={`relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg ${
+          activeSrc ? "bg-white" : "bg-zinc-100"
+        }`}
+      >
         {activeSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -74,17 +78,17 @@ export function ExerciseVisual({
             alt={exercise.name}
             loading="lazy"
             onError={() => markFailed(activeSrc)}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
-          <Dumbbell className="h-5 w-5 text-zinc-500" aria-hidden="true" />
+          <Dumbbell className="h-5 w-5 text-zinc-400" aria-hidden="true" />
         )}
       </div>
     );
   }
 
   return (
-    <div className="relative flex aspect-square max-h-64 w-full items-center justify-center overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
+    <div className="relative flex h-[38dvh] min-h-[220px] max-h-[340px] w-full items-center justify-center overflow-hidden border-b border-zinc-200 bg-white px-4 py-4 sm:px-6">
       {activeSrc ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -95,19 +99,19 @@ export function ExerciseVisual({
             className="h-full w-full object-contain"
           />
           {gifUrl && (
-            <span className="absolute top-3 left-3 rounded-full border border-zinc-700/80 bg-zinc-900/85 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+            <span className="absolute top-3 right-4 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 sm:right-6">
               GIF Demo
             </span>
           )}
           {usingPhotoFlipbook && hasTwoFrames && (
-            <div className="absolute inset-x-3 bottom-3 flex items-center justify-between">
-              <span className="tabular-nums rounded-full border border-zinc-700/80 bg-zinc-900/85 px-2.5 py-1 text-[11px] font-medium text-zinc-200">
+            <div className="absolute inset-x-4 bottom-3 flex items-center justify-between sm:inset-x-6">
+              <span className="tabular-nums rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-700">
                 Frame {frameIndex + 1}/2
               </span>
               <button
                 type="button"
                 onClick={() => setIsPlaying((prev) => !prev)}
-                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900/90 px-3 text-xs font-medium text-zinc-100 hover:border-zinc-500"
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
               >
                 {isPlaying ? (
                   <>
@@ -125,9 +129,9 @@ export function ExerciseVisual({
           )}
         </>
       ) : (
-        <div className="flex flex-col items-center gap-2 text-zinc-500">
+        <div className="flex flex-col items-center gap-2 text-zinc-400">
           <Dumbbell className="h-10 w-10" aria-hidden="true" />
-          <span className="text-xs">No visual demo attached</span>
+          <span className="text-xs text-zinc-500">No visual demo attached</span>
         </div>
       )}
     </div>

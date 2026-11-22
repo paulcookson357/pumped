@@ -43,51 +43,50 @@ export function TopHeader() {
 
   const effectiveOffline = !isOnline || status === "offline";
 
-  let pillClasses =
-    "border-emerald-500/25 bg-emerald-500/10 text-emerald-300";
+  let pillClasses = "border-emerald-200 bg-emerald-50 text-emerald-700";
   let pillLabel = "Online";
   let PillIcon = Wifi;
   let iconSpin = false;
 
   if (effectiveOffline) {
-    pillClasses = "border-amber-500/30 bg-amber-500/10 text-amber-300";
+    pillClasses = "border-amber-200 bg-amber-50 text-amber-700";
     pillLabel = pendingCount > 0 ? `Offline (${pendingCount})` : "Offline";
     PillIcon = WifiOff;
   } else if (status === "syncing") {
-    pillClasses = "border-blue-500/30 bg-blue-500/10 text-blue-300";
+    pillClasses = "border-blue-200 bg-blue-50 text-blue-700";
     pillLabel = pendingCount > 0 ? `Syncing (${pendingCount})` : "Syncing";
     PillIcon = RefreshCw;
     iconSpin = true;
   } else if (status === "error") {
-    pillClasses = "border-rose-500/30 bg-rose-500/10 text-rose-300";
+    pillClasses = "border-rose-200 bg-rose-50 text-rose-700";
     pillLabel = pendingCount > 0 ? `Pending (${pendingCount})` : "Sync error";
     PillIcon = AlertCircle;
   } else if (pendingCount > 0) {
-    pillClasses = "border-blue-500/30 bg-blue-500/10 text-blue-300";
+    pillClasses = "border-blue-200 bg-blue-50 text-blue-700";
     pillLabel = `Pending (${pendingCount})`;
     PillIcon = RefreshCw;
   } else if (status === "synced") {
-    pillClasses = "border-emerald-500/25 bg-emerald-500/10 text-emerald-300";
+    pillClasses = "border-emerald-200 bg-emerald-50 text-emerald-700";
     pillLabel = "Synced";
     PillIcon = CheckCircle2;
   }
 
   return (
-    <header className="pt-safe sticky top-0 z-30 border-b border-zinc-800/90 bg-[#09090B]/95 backdrop-blur-md">
-      <div className="mx-auto flex h-14 w-full max-w-lg items-center justify-between px-4">
+    <header className="pt-safe sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur-md">
+      <div className="flex h-14 w-full items-center justify-between px-4 sm:px-6">
         <Link
           href="/"
-          className="flex min-h-[44px] items-center gap-2.5 rounded-lg pr-2 text-zinc-100"
+          className="flex min-h-[44px] items-center gap-2.5 pr-2 text-zinc-950"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-400">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
             <Dumbbell className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span className="text-base font-bold tracking-tight text-zinc-100">
+          <span className="text-base font-bold tracking-tight text-zinc-950">
             Pumped
           </span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div
             role="status"
             aria-live="polite"
@@ -103,10 +102,10 @@ export function TopHeader() {
           <Link
             href="/settings"
             aria-label="Settings"
-            className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
+            className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${
               isSettingsActive
-                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                : "border-zinc-800 bg-[#111114] text-zinc-300 hover:border-zinc-700 hover:text-zinc-100"
+                ? "bg-emerald-50 text-emerald-700"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
             }`}
           >
             <Settings className="h-5 w-5" aria-hidden="true" />

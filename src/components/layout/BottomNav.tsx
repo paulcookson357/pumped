@@ -17,9 +17,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary navigation"
-      className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-zinc-800/90 bg-[#09090B]/95 backdrop-blur-md"
+      className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-zinc-200 bg-white/95 backdrop-blur-md"
     >
-      <div className="mx-auto grid w-full max-w-lg grid-cols-4 px-1">
+      <div className="grid w-full grid-cols-4">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -29,15 +29,21 @@ export function BottomNav() {
               key={href}
               href={href}
               aria-current={isActive ? "page" : undefined}
-              className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
+              className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium transition-colors ${
                 isActive
-                  ? "text-emerald-400"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "text-emerald-600"
+                  : "text-zinc-500 hover:text-zinc-900"
               }`}
             >
+              {isActive && (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-0 h-0.5 w-10 rounded-full bg-emerald-600"
+                />
+              )}
               <Icon
                 className={`h-5 w-5 ${
-                  isActive ? "text-emerald-400" : "text-zinc-400"
+                  isActive ? "text-emerald-600" : "text-zinc-500"
                 }`}
                 aria-hidden="true"
               />

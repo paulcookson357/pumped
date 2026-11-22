@@ -40,3 +40,8 @@ These rules apply across the entire `Pumped` repository and are always active.
 - Put pure calculations (`oneRepMax`, `volume`, `prDetector`, `weeklySplit`, `outbox`) in `src/lib/` with Vitest unit tests.
 - Before concluding any implementation phase, run and verify:
   `npm run typecheck && npm run lint && npm run test && npm run build`
+
+## 8. Visual Design System (Light Theme, Hairline Dividers, Full-Page Modals)
+- **Crisp Light Theme:** Use a `#FFFFFF` canvas, `text-zinc-950` primary ink, `text-zinc-500` / `text-zinc-600` secondary ink, subtle `#E4E4E7` hairline dividers (`border-zinc-200`, `divide-zinc-200`), and `emerald-600` primary actions/highlights.
+- **Minimal Cards & Full-Space Layout:** Avoid boxed card containers (`rounded-2xl border bg-... p-5`). Utilize the full viewport width with clean horizontal padding (`px-4 sm:px-6`) and separate sections, lists, and settings rows with full-bleed hairline borders (`border-b border-zinc-200`, `divide-y divide-zinc-200`).
+- **Full-Page Modals:** All popup dialogs, detail views, pickers, and creation forms MUST render as true full-page overlays (`fixed inset-0 z-50 flex h-dvh w-full flex-col bg-white`) with a sticky header (`border-b border-zinc-200`) and full-height scrollable content—never cramped floating boxes or partial bottom sheets.

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   applicationName: "Pumped",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Pumped",
   },
   icons: {
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090B",
+  themeColor: "#FFFFFF",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -38,14 +38,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-dvh bg-[#09090B] text-zinc-100 antialiased">
+    <html lang="en">
+      <body className="min-h-dvh bg-white text-zinc-950 antialiased">
         <ServiceWorkerRegistrar />
         <SyncBootstrap />
         <TopHeader />
-        <main className="mx-auto w-full max-w-lg px-4 pt-5 pb-24">
-          {children}
-        </main>
+        <main className="w-full px-4 pt-4 pb-24 sm:px-6">{children}</main>
         <BottomNav />
       </body>
     </html>

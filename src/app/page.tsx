@@ -8,64 +8,72 @@ export default function CalendarHomePage() {
   const configured = isSupabaseConfigured();
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-1">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+    <div className="space-y-0">
+      <section className="pb-4">
+        <h1 className="text-xl font-bold tracking-tight text-zinc-950">
           Training Calendar
         </h1>
-        <p className="text-sm text-zinc-400">
+        <p className="mt-0.5 text-sm text-zinc-500">
           Schedule strength workouts by date or repeating weekly split.
         </p>
       </section>
 
-      <section className="rounded-2xl border border-zinc-800 bg-[#111114] p-5">
+      <section className="-mx-4 border-t border-zinc-200 px-4 py-6 sm:-mx-6 sm:px-6">
         <div className="flex items-start gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
             <CalendarDays className="h-5 w-5" aria-hidden="true" />
           </div>
-          <div className="space-y-1.5">
-            <h2 className="text-base font-semibold text-zinc-100">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-zinc-950">
               No workouts scheduled yet
             </h2>
-            <p className="text-sm leading-relaxed text-zinc-400">
-              Once your Supabase project is linked and routines are created,
+            <p className="text-sm leading-relaxed text-zinc-600">
+              Once routines and weekly splits are configured in Phase 3,
               today&apos;s scheduled training and monthly calendar will appear
-              here automatically.
+              here.
             </p>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-3 border-t border-zinc-800/80 pt-4">
+        <div className="mt-5 flex flex-wrap gap-3">
           <Link
             href="/routines"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-emerald-500 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
           >
             View Routines
           </Link>
           <Link
-            href="/settings"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600"
+            href="/exercises"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50"
           >
-            <Settings className="h-4 w-4" aria-hidden="true" />
-            <span>Check Settings</span>
+            Browse Exercises
           </Link>
         </div>
       </section>
 
-      <section className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-[#111114] px-4 py-3.5">
-        <div className="flex items-center gap-2.5 text-sm text-zinc-300">
-          <Database className="h-4 w-4 text-zinc-400" aria-hidden="true" />
+      <section className="-mx-4 flex items-center justify-between border-y border-zinc-200 px-4 py-3.5 sm:-mx-6 sm:px-6">
+        <div className="flex items-center gap-2.5 text-sm text-zinc-700">
+          <Database className="h-4 w-4 text-zinc-500" aria-hidden="true" />
           <span>Supabase Backend</span>
         </div>
-        <span
-          className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-            configured
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : "border-amber-500/30 bg-amber-500/10 text-amber-300"
-          }`}
-        >
-          {configured ? "Configured" : "Not linked yet"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+              configured
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+            }`}
+          >
+            {configured ? "Configured" : "Not linked yet"}
+          </span>
+          <Link
+            href="/settings"
+            aria-label="Open Settings"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            <Settings className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
       </section>
     </div>
   );

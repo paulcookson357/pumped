@@ -67,6 +67,15 @@ export function CustomExerciseDrawer({
     setErrorMessage(null);
   }, [open, editingExercise]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open, onClose]);
+
   if (!open) {
     return null;
   }
@@ -149,33 +158,50 @@ export function CustomExerciseDrawer({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={editingExercise ? "Edit Custom Exercise" : "New Custom Exercise"}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-xs sm:items-center sm:p-4"
-      onClick={onClose}
+      aria-label={
+        editingExercise ? "Edit Custom Exercise" : "New Custom Exercise"
+      }
+      className="fixed inset-0 z-50 flex h-dvh w-full flex-col bg-white"
     >
-      <div
-        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-zinc-800 bg-[#111114] p-5 pb-8 sm:rounded-3xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight text-zinc-100">
-            {editingExercise ? "Edit Custom Exercise" : "New Custom Exercise"}
-          </h2>
+      {/* Full-page modal sticky header */}
+      <header className="pt-safe shrink-0 border-b border-zinc-200 bg-white">
+        <div className="flex h-14 items-center justify-between gap-2 px-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close form"
+              className="-ml-2 flex h-11 w-11 items-center justify-center rounded-lg text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <h2 className="text-base font-bold tracking-tight text-zinc-950">
+              {editingExercise ? "Edit Custom Exercise" : "New Custom Exercise"}
+            </h2>
+          </div>
+
           <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close form"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700"
+            type="submit"
+            form="custom-exercise-form"
+            disabled={submitting}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-60"
           >
-            <X className="h-5 w-5" aria-hidden="true" />
+            Save
           </button>
         </div>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
+      {/* Full-width scrollable form */}
+      <form
+        id="custom-exercise-form"
+        onSubmit={handleSubmit}
+        className="pb-safe flex-1 overflow-y-auto bg-white"
+      >
+        <div className="divide-y divide-zinc-200 border-b border-zinc-200">
+          <div className="space-y-1.5 px-4 py-4 sm:px-6">
             <label
               htmlFor="custom-ex-name"
-              className="block text-xs font-medium text-zinc-300"
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
             >
               Exercise Name *
             </label>
@@ -187,15 +213,15 @@ export function CustomExerciseDrawer({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Cable Y-Raise"
-              className="min-h-[44px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 text-base text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 px-4 py-4 sm:px-6">
             <div className="space-y-1.5">
               <label
                 htmlFor="custom-ex-muscle"
-                className="block text-xs font-medium text-zinc-300"
+                className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
               >
                 Muscle Group
               </label>
@@ -203,7 +229,7 @@ export function CustomExerciseDrawer({
                 id="custom-ex-muscle"
                 value={muscleGroup}
                 onChange={(e) => setMuscleGroup(e.target.value as MuscleGroup)}
-                className="min-h-[44px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-base text-zinc-100 focus:border-emerald-500 focus:outline-none"
+                className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
               >
                 {MUSCLE_GROUPS.map((m) => (
                   <option key={m} value={m}>
@@ -216,7 +242,7 @@ export function CustomExerciseDrawer({
             <div className="space-y-1.5">
               <label
                 htmlFor="custom-ex-equipment"
-                className="block text-xs font-medium text-zinc-300"
+                className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
               >
                 Equipment
               </label>
@@ -224,7 +250,7 @@ export function CustomExerciseDrawer({
                 id="custom-ex-equipment"
                 value={equipment}
                 onChange={(e) => setEquipment(e.target.value as EquipmentType)}
-                className="min-h-[44px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-base text-zinc-100 focus:border-emerald-500 focus:outline-none"
+                className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
               >
                 {EQUIPMENT_TYPES.map((eq) => (
                   <option key={eq} value={eq}>
@@ -235,10 +261,10 @@ export function CustomExerciseDrawer({
             </div>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4 py-4 sm:px-6">
             <label
               htmlFor="custom-ex-tracking"
-              className="block text-xs font-medium text-zinc-300"
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
             >
               Tracking Type
             </label>
@@ -246,7 +272,7 @@ export function CustomExerciseDrawer({
               id="custom-ex-tracking"
               value={trackingType}
               onChange={(e) => setTrackingType(e.target.value as TrackingType)}
-              className="min-h-[44px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 text-base text-zinc-100 focus:border-emerald-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
             >
               {TRACKING_TYPES.map((tt) => (
                 <option key={tt} value={tt}>
@@ -256,10 +282,10 @@ export function CustomExerciseDrawer({
             </select>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4 py-4 sm:px-6">
             <label
               htmlFor="custom-ex-image"
-              className="block text-xs font-medium text-zinc-300"
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
             >
               Demo Image / GIF URL (optional)
             </label>
@@ -269,14 +295,14 @@ export function CustomExerciseDrawer({
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://..."
-              className="min-h-[44px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 text-base text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4 py-4 sm:px-6">
             <label
               htmlFor="custom-ex-video"
-              className="block text-xs font-medium text-zinc-300"
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
             >
               Form Video Link (optional)
             </label>
@@ -286,51 +312,34 @@ export function CustomExerciseDrawer({
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://youtube.com/..."
-              className="min-h-[44px] w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 text-base text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 px-4 py-4 sm:px-6">
             <label
               htmlFor="custom-ex-instructions"
-              className="block text-xs font-medium text-zinc-300"
+              className="block text-xs font-semibold uppercase tracking-wider text-zinc-500"
             >
               Form Cues / Instructions (one step per line)
             </label>
             <textarea
               id="custom-ex-instructions"
-              rows={3}
+              rows={4}
               value={instructionsText}
               onChange={(e) => setInstructionsText(e.target.value)}
               placeholder={"Set cables at lowest notch\nRaise arms into a 30° Y angle"}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-base text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
             />
           </div>
+        </div>
 
-          {errorMessage && (
-            <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200">
-              {errorMessage}
-            </p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] flex-1 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm font-medium text-zinc-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="min-h-[44px] flex-1 rounded-xl bg-emerald-500 px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 disabled:opacity-60"
-            >
-              {editingExercise ? "Save Changes" : "Create Exercise"}
-            </button>
+        {errorMessage && (
+          <div className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700 sm:px-6">
+            {errorMessage}
           </div>
-        </form>
-      </div>
+        )}
+      </form>
     </div>
   );
 }

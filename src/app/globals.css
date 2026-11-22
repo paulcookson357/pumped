@@ -1,20 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --bg-canvas: #09090b;
-  --bg-surface: #111114;
-  --bg-elevated: #18181b;
-  --border-hairline: #27272a;
-  --accent-emerald: #10b981;
-  --accent-blue: #3b82f6;
-  --accent-amber: #f59e0b;
+  color-scheme: light;
+  --bg-canvas: #ffffff;
+  --bg-subtle: #fafafa;
+  --border-hairline: #e4e4e7;
+  --accent-emerald: #059669;
+  --accent-blue: #2563eb;
+  --accent-amber: #d97706;
 }
 
 html,
 body {
   background-color: var(--bg-canvas);
-  color: #f4f4f5;
+  color: #09090b;
   overscroll-behavior-y: contain;
   -webkit-tap-highlight-color: transparent;
 }
