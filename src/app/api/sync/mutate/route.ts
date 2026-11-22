@@ -3,9 +3,67 @@ import { getSyncVersions } from "@/lib/cache/loaders";
 import { invalidateDomains } from "@/lib/cache/tags";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/server";
 import type { SyncDomain } from "@/lib/types/domain";
-import { syncMutateRequestSchema } from "@/lib/validation/schemas";
+import {
+  syncMutateRequestSchema,
+  type WorkoutSetInput,
+} from "@/lib/validation/schemas";
 
 export const dynamic = "force-dynamic";
+
+function normalizeCompletedWorkoutSetRows(
+  sets: WorkoutSetInput[],
+  workoutId: string,
+  defaultCompletedAt: string,
+  clientUpdatedAt: string
+) {
+  const completedSets = sets
+    .filter((s) => s.is_completed)
+    .sort((a, b) => {
+      if (a.exercise_order !== b.exercise_order) {
+        return a.exercise_order - b.exercise_order;
+      }
+      return a.set_number - b.set_number;
+    });
+
+  if (completedSets.length === 0) {
+    return [];
+  }
+
+  const exerciseOrderMap = new Map<number, number>();
+  const setCounterByOrder = new Map<number, number>();
+  let nextExOrder = 0;
+
+  return completedSets.map((s) => {
+    let seqOrder = exerciseOrderMap.get(s.exercise_order);
+    if (seqOrder === undefined) {
+      seqOrder = nextExOrder;
+      nextExOrder += 1;
+      exerciseOrderMap.set(s.exercise_order, seqOrder);
+    }
+
+    const seqSetNumber = (setCounterByOrder.get(seqOrder) ?? 0) + 1;
+    setCounterByOrder.set(seqOrder, seqSetNumber);
+
+    return {
+      id: s.id,
+      workout_id: workoutId,
+      exercise_id: s.exercise_id,
+      exercise_order: seqOrder,
+      superset_group: s.superset_group,
+      set_number: seqSetNumber,
+      set_type: s.set_type,
+      weight: s.weight,
+      reps: s.reps,
+      rpe: s.rpe,
+      duration_seconds: s.duration_seconds,
+      rest_seconds: s.rest_seconds,
+      is_completed: true,
+      completed_at: s.completed_at ?? defaultCompletedAt,
+      notes: s.notes,
+      client_updated_at: clientUpdatedAt,
+    };
+  });
+}
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseConfigured()) {
@@ -421,51 +479,14 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          const completedSets = payload.sets
-            .filter((s) => s.is_completed)
-            .sort((a, b) => {
-              if (a.exercise_order !== b.exercise_order) {
-                return a.exercise_order - b.exercise_order;
-              }
-              return a.set_number - b.set_number;
-            });
+          const normalizedRows = normalizeCompletedWorkoutSetRows(
+            payload.sets,
+            payload.id,
+            payload.completed_at,
+            mutation.clientUpdatedAt
+          );
 
-          if (completedSets.length > 0) {
-            const exerciseOrderMap = new Map<number, number>();
-            const setCounterByOrder = new Map<number, number>();
-            let nextExOrder = 0;
-
-            const normalizedRows = completedSets.map((s) => {
-              let seqOrder = exerciseOrderMap.get(s.exercise_order);
-              if (seqOrder === undefined) {
-                seqOrder = nextExOrder;
-                nextExOrder += 1;
-                exerciseOrderMap.set(s.exercise_order, seqOrder);
-              }
-
-              const seqSetNumber = (setCounterByOrder.get(seqOrder) ?? 0) + 1;
-              setCounterByOrder.set(seqOrder, seqSetNumber);
-
-              return {
-                id: s.id,
-                workout_id: payload.id,
-                exercise_id: s.exercise_id,
-                exercise_order: seqOrder,
-                superset_group: s.superset_group,
-                set_number: seqSetNumber,
-                set_type: s.set_type,
-                weight: s.weight,
-                reps: s.reps,
-                rpe: s.rpe,
-                duration_seconds: s.duration_seconds,
-                rest_seconds: s.rest_seconds,
-                is_completed: true,
-                completed_at: s.completed_at ?? payload.completed_at,
-                notes: s.notes,
-                client_updated_at: mutation.clientUpdatedAt,
-              };
-            });
-
+          if (normalizedRows.length > 0) {
             const { error: insertSetsErr } = await supabase
               .from("workout_sets")
               .insert(normalizedRows);
@@ -499,6 +520,84 @@ export async function POST(request: NextRequest) {
           }
           if (payload.scheduled_workout_id) {
             touchedDomains.add("schedule");
+          }
+          appliedIds.push(mutation.id);
+          break;
+        }
+
+        case "UPDATE_WORKOUT": {
+          const { payload } = mutation;
+          const { error: workoutErr } = await supabase
+            .from("workouts")
+            .update({
+              name: payload.name,
+              notes: payload.notes,
+              workout_date: payload.workout_date,
+              started_at: payload.started_at,
+              completed_at: payload.completed_at,
+              duration_seconds: payload.duration_seconds,
+              weight_unit: payload.weight_unit,
+              client_updated_at: mutation.clientUpdatedAt,
+            })
+            .eq("id", payload.id);
+
+          if (workoutErr) {
+            return NextResponse.json(
+              { error: workoutErr.message },
+              { status: 500 }
+            );
+          }
+
+          const { error: clearSetsErr } = await supabase
+            .from("workout_sets")
+            .delete()
+            .eq("workout_id", payload.id);
+
+          if (clearSetsErr) {
+            return NextResponse.json(
+              { error: clearSetsErr.message },
+              { status: 500 }
+            );
+          }
+
+          const normalizedRows = normalizeCompletedWorkoutSetRows(
+            payload.sets,
+            payload.id,
+            payload.completed_at,
+            mutation.clientUpdatedAt
+          );
+
+          if (normalizedRows.length > 0) {
+            const { error: insertSetsErr } = await supabase
+              .from("workout_sets")
+              .insert(normalizedRows);
+
+            if (insertSetsErr) {
+              return NextResponse.json(
+                { error: insertSetsErr.message },
+                { status: 500 }
+              );
+            }
+          }
+
+          const { error: finalizeErr } = await supabase.rpc(
+            "finalize_workout_stats",
+            {
+              p_workout_id: payload.id,
+              p_scheduled_workout_id: null,
+            }
+          );
+
+          if (finalizeErr) {
+            return NextResponse.json(
+              { error: finalizeErr.message },
+              { status: 500 }
+            );
+          }
+
+          touchedDomains.add("workouts");
+          if (payload.routine_id) {
+            touchedDomains.add("routines");
           }
           appliedIds.push(mutation.id);
           break;

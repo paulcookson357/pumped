@@ -14,8 +14,11 @@ import { ExerciseDetailDrawer } from "@/components/exercises/ExerciseDetailDrawe
 import { ExercisePickerModal } from "@/components/routines/ExercisePickerModal";
 import { ActiveExerciseBlock } from "@/components/workout/ActiveExerciseBlock";
 import { RestTimerBanner } from "@/components/workout/RestTimerBanner";
+import { putLocalRoutineBundle } from "@/lib/offline/db";
+import { enqueueAndSync } from "@/lib/offline/syncEngine";
+import { replaceExerciseInRoutineTemplate } from "@/lib/routines/swap";
 import { getSupersetPositions } from "@/lib/routines/supersets";
-import type { Exercise } from "@/lib/types/domain";
+import type { Exercise, RoutineExercise } from "@/lib/types/domain";
 import {
   computeWorkoutTotals,
   formatElapsedDuration,
@@ -42,6 +45,8 @@ export function ActiveWorkoutSheet() {
   } = useActiveWorkoutStore();
 
   const exercises = useAppDataStore((state) => state.exercises);
+  const routines = useAppDataStore((state) => state.routines);
+  const routineExercises = useAppDataStore((state) => state.routineExercises);
   const settings = useAppDataStore((state) => state.settings);
   const startRestTimer = useRestTimerStore((state) => state.start);
 
@@ -52,6 +57,13 @@ export function ActiveWorkoutSheet() {
   const [swapTargetDraftId, setSwapTargetDraftId] = useState<string | null>(
     null
   );
+  const [pendingSwap, setPendingSwap] = useState<{
+    draftId: string;
+    oldExerciseId: string;
+    newExerciseId: string;
+    draftIndex: number;
+  } | null>(null);
+  const [swapNotice, setSwapNotice] = useState<string | null>(null);
   const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
   const [finishPrompt, setFinishPrompt] = useState<
     "none" | "empty" | "unfinished"
@@ -80,6 +92,8 @@ export function ActiveWorkoutSheet() {
       setFinishPrompt("none");
       setConfirmDiscard(false);
       setQuickRestOpen(false);
+      setPendingSwap(null);
+      setSwapNotice(null);
     }
   }, [sheetOpen]);
 
@@ -145,6 +159,17 @@ export function ActiveWorkoutSheet() {
   const autoStartRestTimer = settings?.auto_start_rest_timer ?? true;
   const defaultRestSeconds = settings?.default_rest_seconds ?? 90;
 
+  const swapTargetDraft = swapTargetDraftId
+    ? activeWorkout.exercises.find((e) => e.draftId === swapTargetDraftId)
+    : undefined;
+  const swapTargetExercise = swapTargetDraft
+    ? exerciseMap.get(swapTargetDraft.exerciseId)
+    : undefined;
+
+  const activeRoutine = activeWorkout.routineId
+    ? routines.find((r) => r.id === activeWorkout.routineId)
+    : undefined;
+
   function handleAttemptFinish() {
     if (liveTotals.totalSets === 0) {
       setFinishPrompt("empty");
@@ -155,6 +180,113 @@ export function ActiveWorkoutSheet() {
       return;
     }
     void finishWorkout(settings);
+  }
+
+  function handlePickSwapReplacement(replacementId: string) {
+    if (!activeWorkout || !swapTargetDraftId) {
+      setSwapTargetDraftId(null);
+      return;
+    }
+
+    const draftIndex = activeWorkout.exercises.findIndex(
+      (e) => e.draftId === swapTargetDraftId
+    );
+    const targetDraft =
+      draftIndex >= 0 ? activeWorkout.exercises[draftIndex] : undefined;
+
+    if (!targetDraft) {
+      setSwapTargetDraftId(null);
+      return;
+    }
+
+    const routineContainsExercise =
+      Boolean(activeRoutine) &&
+      routineExercises.some(
+        (re) =>
+          re.routine_id === activeRoutine?.id &&
+          re.exercise_id === targetDraft.exerciseId
+      );
+
+    if (routineContainsExercise) {
+      setPendingSwap({
+        draftId: swapTargetDraftId,
+        oldExerciseId: targetDraft.exerciseId,
+        newExerciseId: replacementId,
+        draftIndex,
+      });
+      setSwapTargetDraftId(null);
+      return;
+    }
+
+    swapExercise(swapTargetDraftId, replacementId);
+    setSwapTargetDraftId(null);
+  }
+
+  function handleConfirmSwapTodayOnly() {
+    if (!pendingSwap) return;
+    swapExercise(pendingSwap.draftId, pendingSwap.newExerciseId);
+    setPendingSwap(null);
+  }
+
+  async function handleConfirmSwapAndUpdateRoutine() {
+    if (!pendingSwap || !activeRoutine) return;
+
+    const currentRoutineId = activeRoutine.id;
+    const routineRows = routineExercises.filter(
+      (re) => re.routine_id === currentRoutineId
+    );
+    const { updated, changed } = replaceExerciseInRoutineTemplate(
+      routineRows,
+      pendingSwap.oldExerciseId,
+      pendingSwap.newExerciseId,
+      pendingSwap.draftIndex
+    );
+
+    swapExercise(pendingSwap.draftId, pendingSwap.newExerciseId);
+    setPendingSwap(null);
+
+    if (!changed) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const updatedRoutine = { ...activeRoutine, updated_at: now };
+
+    useAppDataStore
+      .getState()
+      .upsertRoutineOptimistic(updatedRoutine, updated);
+    await putLocalRoutineBundle(updatedRoutine, updated);
+
+    void enqueueAndSync(
+      {
+        id: crypto.randomUUID(),
+        type: "UPSERT_ROUTINE",
+        clientUpdatedAt: now,
+        payload: {
+          id: updatedRoutine.id,
+          name: updatedRoutine.name,
+          color: updatedRoutine.color,
+          notes: updatedRoutine.notes,
+          sort_order: updatedRoutine.sort_order,
+          exercises: updated.map((row: RoutineExercise, idx: number) => ({
+            id: row.id,
+            exercise_id: row.exercise_id,
+            sort_order: idx,
+            superset_group: row.superset_group,
+            target_sets: row.target_sets,
+            target_reps_min: row.target_reps_min,
+            target_reps_max: row.target_reps_max,
+            target_rpe: row.target_rpe,
+            rest_seconds: row.rest_seconds,
+            notes: row.notes,
+          })),
+        },
+      },
+      `routine:${updatedRoutine.id}`
+    );
+
+    setSwapNotice(`Updated "${updatedRoutine.name}" routine template.`);
+    window.setTimeout(() => setSwapNotice(null), 3500);
   }
 
   return (
@@ -282,6 +414,51 @@ export function ActiveWorkoutSheet() {
 
       {/* Active Wall-Clock Rest Timer Banner */}
       <RestTimerBanner />
+
+      {/* Mid-workout routine swap confirmation strip */}
+      {pendingSwap && (
+        <div className="shrink-0 border-b border-emerald-200 bg-emerald-50/70 px-4 py-3 sm:px-6">
+          <p className="text-xs font-semibold text-emerald-950">
+            Swap &ldquo;
+            {exerciseMap.get(pendingSwap.oldExerciseId)?.name ?? "Exercise"}
+            &rdquo; &rarr; &ldquo;
+            {exerciseMap.get(pendingSwap.newExerciseId)?.name ?? "Exercise"}
+            &rdquo;?
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingSwap(null)}
+              className="min-h-[38px] rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmSwapTodayOnly}
+              className="min-h-[38px] flex-1 rounded-lg border border-emerald-300 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+            >
+              Today Only
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirmSwapAndUpdateRoutine()}
+              className="min-h-[38px] flex-1 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-500"
+            >
+              Swap &amp; Update Routine
+            </button>
+          </div>
+        </div>
+      )}
+
+      {swapNotice && (
+        <div
+          role="status"
+          className="shrink-0 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-800 sm:px-6"
+        >
+          {swapNotice}
+        </div>
+      )}
 
       {/* Finish confirmation strip */}
       {finishPrompt === "empty" && (
@@ -455,22 +632,20 @@ export function ActiveWorkoutSheet() {
         exercises={exercises}
         mode="single"
         excludeExerciseIds={
-          swapTargetDraftId
-            ? [
-                activeWorkout.exercises.find(
-                  (e) => e.draftId === swapTargetDraftId
-                )?.exerciseId ?? "",
-              ].filter(Boolean)
+          swapTargetDraft
+            ? [swapTargetDraft.exerciseId].filter(Boolean)
             : []
         }
+        initialMuscleGroup={swapTargetExercise?.muscle_group ?? "all"}
         title="Swap Exercise"
         onClose={() => setSwapTargetDraftId(null)}
         onConfirm={(selectedIds) => {
           const replacementId = selectedIds[0];
-          if (swapTargetDraftId && replacementId) {
-            swapExercise(swapTargetDraftId, replacementId);
+          if (replacementId) {
+            handlePickSwapReplacement(replacementId);
+          } else {
+            setSwapTargetDraftId(null);
           }
-          setSwapTargetDraftId(null);
         }}
       />
 

@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Award, CheckCircle2, Trophy, X } from "lucide-react";
 import { formatDayHeader } from "@/lib/dates/localDate";
 import {
@@ -19,6 +19,8 @@ export function WorkoutFinishModal({
   summary,
   onDismiss,
 }: WorkoutFinishModalProps) {
+  const router = useRouter();
+
   useEffect(() => {
     if (!summary) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -222,13 +224,16 @@ export function WorkoutFinishModal({
       </div>
 
       <footer className="pb-safe shrink-0 space-y-2 border-t border-zinc-200 bg-white px-4 py-3 sm:px-6">
-        <Link
-          href={`/history/${workout.id}`}
-          onClick={onDismiss}
+        <button
+          type="button"
+          onClick={() => {
+            router.push(`/history/${workout.id}`);
+            onDismiss();
+          }}
           className="flex min-h-[44px] w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
         >
           View Session Details
-        </Link>
+        </button>
         <button
           type="button"
           onClick={onDismiss}

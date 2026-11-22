@@ -472,4 +472,140 @@ describe("outbox coalescing and ordering", () => {
       expect(merged.payload.show_rpe_column).toBe(false);
     }
   });
+
+  it("merges FINISH_WORKOUT followed by UPDATE_WORKOUT preserving scheduled_workout_id and createdAt", () => {
+    const workoutId = "44444444-4444-4444-8444-444444444444";
+    const scheduleId = "33333333-3333-4333-8333-333333333333";
+
+    const finishItem = buildOutboxItem(
+      {
+        id: "m-fin",
+        type: "FINISH_WORKOUT",
+        clientUpdatedAt: "2026-11-22T10:45:00.000Z",
+        payload: {
+          id: workoutId,
+          routine_id: null,
+          scheduled_workout_id: scheduleId,
+          name: "Push Day",
+          notes: "Initial",
+          workout_date: "2026-11-22",
+          started_at: "2026-11-22T10:00:00.000Z",
+          completed_at: "2026-11-22T10:45:00.000Z",
+          duration_seconds: 2700,
+          weight_unit: "kg",
+          sets: [],
+        },
+      },
+      `workout:${workoutId}`,
+      100
+    );
+
+    const updateItem = buildOutboxItem(
+      {
+        id: "m-upd",
+        type: "UPDATE_WORKOUT",
+        clientUpdatedAt: "2026-11-22T11:05:00.000Z",
+        payload: {
+          id: workoutId,
+          routine_id: null,
+          name: "Heavy Push Day",
+          notes: "Corrected top set",
+          workout_date: "2026-11-22",
+          started_at: "2026-11-22T10:00:00.000Z",
+          completed_at: "2026-11-22T10:50:00.000Z",
+          duration_seconds: 3000,
+          weight_unit: "kg",
+          sets: [
+            {
+              id: "55555555-5555-4555-8555-555555555555",
+              exercise_id: EXERCISE_ID,
+              exercise_order: 0,
+              superset_group: null,
+              set_number: 1,
+              set_type: "normal",
+              weight: 80,
+              reps: 6,
+              rpe: 8.5,
+              duration_seconds: null,
+              rest_seconds: 90,
+              is_completed: true,
+              completed_at: "2026-11-22T10:50:00.000Z",
+              notes: null,
+            },
+          ],
+        },
+      },
+      `workout:${workoutId}`,
+      400
+    );
+
+    const merged = coalesceMutation(finishItem, updateItem);
+    expect(merged?.type).toBe("FINISH_WORKOUT");
+    expect(merged?.id).toBe("m-fin");
+    expect(merged?.createdAt).toBe(100);
+    expect(merged?.clientUpdatedAt).toBe("2026-11-22T11:05:00.000Z");
+    if (merged?.type === "FINISH_WORKOUT") {
+      expect(merged.payload.scheduled_workout_id).toBe(scheduleId);
+      expect(merged.payload.name).toBe("Heavy Push Day");
+      expect(merged.payload.sets).toHaveLength(1);
+    }
+  });
+
+  it("coalesces UPDATE_WORKOUT followed by DELETE_WORKOUT into DELETE_WORKOUT rather than cancelling", () => {
+    const workoutId = "44444444-4444-4444-8444-444444444444";
+    const updateItem = buildOutboxItem(
+      {
+        id: "m-upd",
+        type: "UPDATE_WORKOUT",
+        clientUpdatedAt: "2026-11-22T11:05:00.000Z",
+        payload: {
+          id: workoutId,
+          routine_id: null,
+          name: "Heavy Push Day",
+          notes: null,
+          workout_date: "2026-11-22",
+          started_at: "2026-11-22T10:00:00.000Z",
+          completed_at: "2026-11-22T10:50:00.000Z",
+          duration_seconds: 3000,
+          weight_unit: "kg",
+          sets: [
+            {
+              id: "55555555-5555-4555-8555-555555555555",
+              exercise_id: EXERCISE_ID,
+              exercise_order: 0,
+              superset_group: null,
+              set_number: 1,
+              set_type: "normal",
+              weight: 80,
+              reps: 6,
+              rpe: 8.5,
+              duration_seconds: null,
+              rest_seconds: 90,
+              is_completed: true,
+              completed_at: "2026-11-22T10:50:00.000Z",
+              notes: null,
+            },
+          ],
+        },
+      },
+      `workout:${workoutId}`,
+      150
+    );
+
+    const deleteItem = buildOutboxItem(
+      {
+        id: "m-del",
+        type: "DELETE_WORKOUT",
+        clientUpdatedAt: "2026-11-22T11:10:00.000Z",
+        payload: { id: workoutId },
+      },
+      `workout:${workoutId}`,
+      300
+    );
+
+    const merged = coalesceMutation(updateItem, deleteItem);
+    expect(merged).not.toBeNull();
+    expect(merged?.type).toBe("DELETE_WORKOUT");
+    expect(merged?.createdAt).toBe(150);
+  });
 });

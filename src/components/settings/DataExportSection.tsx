@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, Upload } from "lucide-react";
+import { ImportBackupModal } from "@/components/settings/ImportBackupModal";
 import { toLocalDateString } from "@/lib/dates/localDate";
 import {
   buildJsonBackup,
@@ -9,6 +10,7 @@ import {
   type ExportDataset,
 } from "@/lib/export/workoutExport";
 import { readAllLocalData } from "@/lib/offline/db";
+import { useSyncStore } from "@/stores/useSyncStore";
 
 interface DataExportSectionProps {
   isConfigured: boolean;
@@ -31,7 +33,9 @@ function triggerFileDownload(
 }
 
 export function DataExportSection({ isConfigured }: DataExportSectionProps) {
+  const pendingCount = useSyncStore((state) => state.pendingCount);
   const [exporting, setExporting] = useState<"json" | "csv" | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [feedback, setFeedback] = useState<{
     kind: "success" | "error";
     text: string;
@@ -191,6 +195,33 @@ export function DataExportSection({ isConfigured }: DataExportSectionProps) {
           </button>
         </div>
 
+        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <Upload className="h-5 w-5 shrink-0 text-zinc-500" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-zinc-950">
+                Restore Backup (JSON)
+              </p>
+              <p className="text-xs text-zinc-500">
+                Merge routines, schedule, workouts &amp; settings from an exported file
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={!isConfigured || pendingCount > 0}
+            onClick={() => {
+              setFeedback(null);
+              setImportOpen(true);
+            }}
+            className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3.5 text-xs font-semibold text-zinc-800 transition-colors hover:bg-zinc-50 disabled:opacity-50 sm:w-auto"
+          >
+            <Upload className="h-4 w-4" aria-hidden="true" />
+            <span>Import Backup (JSON)</span>
+          </button>
+        </div>
+
         {feedback && (
           <div
             role="status"
@@ -204,6 +235,17 @@ export function DataExportSection({ isConfigured }: DataExportSectionProps) {
           </div>
         )}
       </div>
+
+      <ImportBackupModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(summary) =>
+          setFeedback({
+            kind: "success",
+            text: `Imported ${summary.routines} routines, ${summary.workouts} workouts, and ${summary.workoutSets} sets.`,
+          })
+        }
+      />
     </section>
   );
 }

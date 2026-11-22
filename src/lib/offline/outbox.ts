@@ -10,6 +10,7 @@ import type {
   SyncMutation,
   UpdateExerciseInput,
   UpdateSettingsPayload,
+  UpdateWorkoutPayload,
   UpsertRoutinePayload,
   UpsertScheduledWorkoutPayload,
 } from "@/lib/validation/schemas";
@@ -25,7 +26,8 @@ export const MUTATION_PRIORITY: Record<SyncMutation["type"], number> = {
   UPSERT_SCHEDULED_WORKOUT: 31,
   DELETE_SCHEDULED_WORKOUT: 32,
   FINISH_WORKOUT: 40,
-  DELETE_WORKOUT: 41,
+  UPDATE_WORKOUT: 41,
+  DELETE_WORKOUT: 42,
   UPDATE_SETTINGS: 50,
 };
 
@@ -78,6 +80,10 @@ export type OutboxItem =
   | (OutboxBase & {
       type: "FINISH_WORKOUT";
       payload: FinishWorkoutPayload;
+    })
+  | (OutboxBase & {
+      type: "UPDATE_WORKOUT";
+      payload: UpdateWorkoutPayload;
     })
   | (OutboxBase & {
       type: "DELETE_WORKOUT";
@@ -135,6 +141,12 @@ export function buildOutboxItem(
         type: "FINISH_WORKOUT",
         payload: mutation.payload,
       };
+    case "UPDATE_WORKOUT":
+      return {
+        ...base,
+        type: "UPDATE_WORKOUT",
+        payload: mutation.payload,
+      };
     case "DELETE_WORKOUT":
       return {
         ...base,
@@ -176,6 +188,21 @@ export function coalesceMutation(
     incoming.type === "ARCHIVE_EXERCISE"
   ) {
     return null;
+  }
+
+  // Logged offline then edited offline before ever syncing -> keep FINISH_WORKOUT with scheduled link
+  if (
+    existing.type === "FINISH_WORKOUT" &&
+    incoming.type === "UPDATE_WORKOUT"
+  ) {
+    return {
+      ...existing,
+      clientUpdatedAt: incoming.clientUpdatedAt,
+      payload: {
+        ...incoming.payload,
+        scheduled_workout_id: existing.payload.scheduled_workout_id,
+      },
+    };
   }
 
   // Logged offline then deleted offline before ever syncing -> cancel out
@@ -270,6 +297,13 @@ export function toSyncMutation(item: OutboxItem): SyncMutation {
       return {
         id: item.id,
         type: "FINISH_WORKOUT",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "UPDATE_WORKOUT":
+      return {
+        id: item.id,
+        type: "UPDATE_WORKOUT",
         clientUpdatedAt: item.clientUpdatedAt,
         payload: item.payload,
       };

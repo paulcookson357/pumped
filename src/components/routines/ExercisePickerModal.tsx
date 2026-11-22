@@ -15,6 +15,7 @@ interface ExercisePickerModalProps {
   exercises: Exercise[];
   mode?: "multi" | "single";
   excludeExerciseIds?: string[];
+  initialMuscleGroup?: MuscleGroup | "all";
   title?: string;
   confirmLabel?: string;
   onClose: () => void;
@@ -26,6 +27,7 @@ export function ExercisePickerModal({
   exercises,
   mode = "multi",
   excludeExerciseIds,
+  initialMuscleGroup = "all",
   title = "Select Exercises",
   confirmLabel,
   onClose,
@@ -33,16 +35,16 @@ export function ExercisePickerModal({
 }: ExercisePickerModalProps) {
   const [query, setQuery] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | "all">(
-    "all"
+    initialMuscleGroup
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
     setQuery("");
-    setSelectedMuscle("all");
+    setSelectedMuscle(initialMuscleGroup);
     setSelectedIds([]);
-  }, [open]);
+  }, [open, initialMuscleGroup]);
 
   useEffect(() => {
     if (!open) return;

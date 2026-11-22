@@ -352,16 +352,14 @@ export function RoutinesClient({
                   onClick={() => openEditRoutine(routine)}
                   className="min-w-0 flex-1 px-4 py-3.5 text-left sm:px-5"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="truncate text-base font-bold text-zinc-950">
-                      {routine.name}
-                    </h2>
-                    <span className="tabular-nums shrink-0 text-xs font-medium text-zinc-500">
-                      {items.length}{" "}
-                      {items.length === 1 ? "exercise" : "exercises"} •{" "}
-                      {totalSets} sets
-                    </span>
-                  </div>
+                  <h2 className="truncate text-base font-bold text-zinc-950">
+                    {routine.name}
+                  </h2>
+                  <p className="tabular-nums mt-0.5 text-xs font-medium text-zinc-500">
+                    {items.length}{" "}
+                    {items.length === 1 ? "exercise" : "exercises"} •{" "}
+                    {totalSets} sets
+                  </p>
 
                   {items.length > 0 ? (
                     <p className="mt-1 truncate text-xs text-zinc-600">

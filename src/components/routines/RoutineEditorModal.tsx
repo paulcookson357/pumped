@@ -47,10 +47,16 @@ interface RoutineEditorModalProps {
   open: boolean;
   editingRoutine: Routine | null;
   initialRoutineExercises: RoutineExercise[];
+  templateSeed?: {
+    name: string;
+    notes: string | null;
+    exercises: RoutineExercise[];
+  } | null;
   exercises: Exercise[];
   nextSortOrder: number;
   defaultRestSeconds: number;
   onClose: () => void;
+  onSaved?: (routine: Routine) => void;
 }
 
 function toDraftItem(row: RoutineExercise): DraftRoutineExercise {
@@ -81,10 +87,12 @@ export function RoutineEditorModal({
   open,
   editingRoutine,
   initialRoutineExercises,
+  templateSeed = null,
   exercises,
   nextSortOrder,
   defaultRestSeconds,
   onClose,
+  onSaved,
 }: RoutineEditorModalProps) {
   const dndId = useId();
   const [name, setName] = useState("");
@@ -123,6 +131,14 @@ export function RoutineEditorModal({
         (a, b) => a.sort_order - b.sort_order
       );
       setDraftExercises(sorted.map(toDraftItem));
+    } else if (templateSeed) {
+      setName(templateSeed.name);
+      setColor(ROUTINE_COLORS[0]?.hex ?? "#059669");
+      setNotes(templateSeed.notes ?? "");
+      const sorted = [...templateSeed.exercises].sort(
+        (a, b) => a.sort_order - b.sort_order
+      );
+      setDraftExercises(sorted.map(toDraftItem));
     } else {
       setName("");
       setColor(ROUTINE_COLORS[0]?.hex ?? "#059669");
@@ -132,7 +148,7 @@ export function RoutineEditorModal({
     setConfirmArchive(false);
     setPickerOpen(false);
     setErrorMessage(null);
-  }, [open, editingRoutine, initialRoutineExercises]);
+  }, [open, editingRoutine, initialRoutineExercises, templateSeed]);
 
   useEffect(() => {
     if (!open || pickerOpen) return;
@@ -323,17 +339,24 @@ export function RoutineEditorModal({
         `routine:${routineId}`
       );
 
+      onSaved?.(optimisticRoutine);
       onClose();
     } finally {
       setSubmitting(false);
     }
   }
 
+  const modalTitle = editingRoutine
+    ? "Edit Routine"
+    : templateSeed
+      ? "Save as Routine"
+      : "New Routine";
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={editingRoutine ? "Edit Routine" : "New Routine"}
+      aria-label={modalTitle}
       className="fixed inset-0 z-50 flex h-dvh w-full flex-col bg-white"
     >
       <header className="pt-safe shrink-0 border-b border-zinc-200 bg-white">
@@ -348,7 +371,7 @@ export function RoutineEditorModal({
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
             <h2 className="text-base font-bold tracking-tight text-zinc-950">
-              {editingRoutine ? "Edit Routine" : "New Routine"}
+              {modalTitle}
             </h2>
           </div>
 

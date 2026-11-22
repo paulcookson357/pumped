@@ -5,13 +5,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  BookmarkPlus,
+  CheckCircle2,
   ChevronRight,
   History,
+  Pencil,
   RotateCcw,
   Trash2,
   TrendingUp,
 } from "lucide-react";
 import { ExerciseVisual } from "@/components/exercises/ExerciseVisual";
+import { EditWorkoutModal } from "@/components/history/EditWorkoutModal";
+import { RoutineEditorModal } from "@/components/routines/RoutineEditorModal";
 import { formatDayHeader } from "@/lib/dates/localDate";
 import { calculateEpley1RM } from "@/lib/metrics/oneRepMax";
 import { deleteLocalWorkout } from "@/lib/offline/db";
@@ -91,6 +96,14 @@ export function WorkoutDetailClient({
   );
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [saveRoutineOpen, setSaveRoutineOpen] = useState(false);
+  const [saveRoutineSeed, setSaveRoutineSeed] = useState<{
+    name: string;
+    notes: string | null;
+    exercises: RoutineExercise[];
+  } | null>(null);
+  const [savedRoutineName, setSavedRoutineName] = useState<string | null>(null);
 
   const shouldReconcileExercises =
     hydrated &&
@@ -229,6 +242,39 @@ export function WorkoutDetailClient({
     });
   }
 
+  function handleOpenSaveAsRoutine() {
+    if (!workout || exerciseGroups.length === 0) return;
+    const now = new Date().toISOString();
+    const defaultRest = effectiveSettings?.default_rest_seconds ?? 90;
+
+    const seedExercises: RoutineExercise[] = exerciseGroups.map((group, idx) => {
+      const workingSets = group.sets.filter((s) => s.set_type !== "warmup");
+      const firstSet = workingSets[0] ?? group.sets[0];
+      return {
+        id: crypto.randomUUID(),
+        routine_id: workout.id,
+        exercise_id: group.exerciseId,
+        sort_order: idx,
+        superset_group: group.supersetGroup,
+        target_sets: Math.max(1, group.sets.length),
+        target_reps_min: firstSet?.reps ?? null,
+        target_reps_max: firstSet?.reps ?? null,
+        target_rpe: firstSet?.rpe ?? null,
+        rest_seconds: firstSet?.rest_seconds ?? defaultRest,
+        notes: group.notes,
+        created_at: now,
+        updated_at: now,
+      };
+    });
+
+    setSaveRoutineSeed({
+      name: workout.name,
+      notes: workout.notes,
+      exercises: seedExercises,
+    });
+    setSaveRoutineOpen(true);
+  }
+
   async function handleConfirmDelete() {
     if (!workout) return;
     const now = new Date().toISOString();
@@ -258,14 +304,32 @@ export function WorkoutDetailClient({
           <span>History</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={handleRepeatWorkout}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
             <span>Repeat Workout</span>
+          </button>
+          <button
+            type="button"
+            disabled={exerciseGroups.length === 0}
+            onClick={handleOpenSaveAsRoutine}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            <BookmarkPlus className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+            <span>Save as Routine</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditModalOpen(true)}
+            aria-label="Edit workout"
+            className="inline-flex h-10 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Edit</span>
           </button>
           <button
             type="button"
@@ -277,6 +341,24 @@ export function WorkoutDetailClient({
           </button>
         </div>
       </div>
+
+      {savedRoutineName && (
+        <div
+          role="status"
+          className="-mx-4 mb-3 flex flex-wrap items-center justify-between gap-2 border-y border-emerald-200 bg-emerald-50/80 px-4 py-2.5 text-xs font-medium text-emerald-900 sm:-mx-6 sm:px-6"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+            <span>Saved &ldquo;{savedRoutineName}&rdquo; to Routines.</span>
+          </span>
+          <Link
+            href="/routines"
+            className="font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
+          >
+            View Routines
+          </Link>
+        </div>
+      )}
 
       {/* Inline delete confirmation */}
       {confirmDelete && (
@@ -510,6 +592,31 @@ export function WorkoutDetailClient({
           No completed sets recorded for this workout.
         </div>
       )}
+
+      <EditWorkoutModal
+        open={editModalOpen}
+        workout={workout}
+        sets={sets}
+        exercises={exercises}
+        onClose={() => setEditModalOpen(false)}
+      />
+
+      <RoutineEditorModal
+        open={saveRoutineOpen}
+        editingRoutine={null}
+        initialRoutineExercises={[]}
+        templateSeed={saveRoutineSeed}
+        exercises={exercises}
+        nextSortOrder={routines.length}
+        defaultRestSeconds={effectiveSettings?.default_rest_seconds ?? 90}
+        onClose={() => {
+          setSaveRoutineOpen(false);
+          setSaveRoutineSeed(null);
+        }}
+        onSaved={(savedRoutine) => {
+          setSavedRoutineName(savedRoutine.name);
+        }}
+      />
     </div>
   );
 }

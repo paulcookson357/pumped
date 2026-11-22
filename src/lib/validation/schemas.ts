@@ -236,6 +236,19 @@ export const finishWorkoutPayloadSchema = z.object({
   sets: z.array(workoutSetInputSchema).max(500),
 });
 
+export const updateWorkoutPayloadSchema = z.object({
+  id: z.string().uuid(),
+  routine_id: z.string().uuid().nullable().default(null),
+  name: z.string().trim().min(1, "Workout name is required").max(80),
+  notes: optionalTrimmedTextSchema(500).optional().default(null),
+  workout_date: localDateSchema,
+  started_at: z.string().datetime(),
+  completed_at: z.string().datetime(),
+  duration_seconds: z.number().int().min(0).max(86400),
+  weight_unit: weightUnitSchema.default("kg"),
+  sets: z.array(workoutSetInputSchema).min(1, "At least one set is required").max(500),
+});
+
 export const previousExerciseSetsRequestSchema = z.object({
   exerciseIds: z.array(z.string().uuid()).min(1).max(100),
 });
@@ -316,6 +329,12 @@ export const syncMutationSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     id: z.string().min(1),
+    type: z.literal("UPDATE_WORKOUT"),
+    clientUpdatedAt: z.string().datetime(),
+    payload: updateWorkoutPayloadSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
     type: z.literal("DELETE_WORKOUT"),
     clientUpdatedAt: z.string().datetime(),
     payload: deleteWorkoutPayloadSchema,
@@ -352,4 +371,5 @@ export type DeleteScheduledWorkoutPayload = z.infer<
 export type WorkoutSetInput = z.infer<typeof workoutSetInputSchema>;
 export type FinishWorkoutPayload = z.infer<typeof finishWorkoutPayloadSchema>;
 export type DeleteWorkoutPayload = z.infer<typeof deleteWorkoutPayloadSchema>;
+export type UpdateWorkoutPayload = z.infer<typeof updateWorkoutPayloadSchema>;
 export type UpdateSettingsPayload = z.infer<typeof updateSettingsPayloadSchema>;
