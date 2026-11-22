@@ -53,20 +53,32 @@ export async function GET(request: NextRequest) {
 
   try {
     const domainSet = new Set<SyncDomain>(requestedDomains);
-    const [versionsPayload, exercises, routines, schedule, workouts, settings] =
+    const versionsPayload = await getSyncVersions();
+    const { versions, updatedAt } = versionsPayload;
+
+    const [exercises, routines, schedule, workouts, settings] =
       await Promise.all([
-        getSyncVersions(),
-        domainSet.has("exercises") ? getCachedExercises() : Promise.resolve(undefined),
-        domainSet.has("routines") ? getCachedRoutines() : Promise.resolve(undefined),
-        domainSet.has("schedule") ? getCachedSchedule() : Promise.resolve(undefined),
-        domainSet.has("workouts") ? getCachedWorkouts() : Promise.resolve(undefined),
-        domainSet.has("settings") ? getCachedSettings() : Promise.resolve(undefined),
+        domainSet.has("exercises")
+          ? getCachedExercises(versions.exercises)
+          : Promise.resolve(undefined),
+        domainSet.has("routines")
+          ? getCachedRoutines(versions.routines)
+          : Promise.resolve(undefined),
+        domainSet.has("schedule")
+          ? getCachedSchedule(versions.schedule)
+          : Promise.resolve(undefined),
+        domainSet.has("workouts")
+          ? getCachedWorkouts(versions.workouts)
+          : Promise.resolve(undefined),
+        domainSet.has("settings")
+          ? getCachedSettings(versions.settings)
+          : Promise.resolve(undefined),
       ]);
 
     return NextResponse.json(
       {
-        versions: versionsPayload.versions,
-        updatedAt: versionsPayload.updatedAt,
+        versions,
+        updatedAt,
         data: {
           ...(exercises !== undefined ? { exercises } : {}),
           ...(routines !== undefined ? { routines } : {}),

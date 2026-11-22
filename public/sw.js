@@ -1,6 +1,6 @@
-const SHELL_CACHE = "pumped-shell-v1";
-const STATIC_CACHE = "pumped-static-v1";
-const MEDIA_CACHE = "pumped-media-v1";
+const SHELL_CACHE = "pumped-shell-v2";
+const STATIC_CACHE = "pumped-static-v2";
+const MEDIA_CACHE = "pumped-media-v2";
 
 const PRECACHE_ROUTES = [
   "/",
@@ -17,7 +17,9 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_ROUTES))
+      .then((cache) =>
+        Promise.allSettled(PRECACHE_ROUTES.map((route) => cache.add(route)))
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -45,8 +47,20 @@ function isMediaAsset(pathname) {
   return pathname.startsWith("/icons/") || pathname.startsWith("/exercises/");
 }
 
-function isStaticAsset(pathname) {
-  return pathname.startsWith("/_next/static/");
+function isStaticAsset(url) {
+  const { pathname, searchParams } = url;
+  if (!pathname.startsWith("/_next/static/")) {
+    return false;
+  }
+  // Never intercept or cache Next.js dev server HMR/versioned chunks
+  if (
+    searchParams.has("v") ||
+    pathname.startsWith("/_next/static/development/") ||
+    pathname.startsWith("/_next/static/webpack/")
+  ) {
+    return false;
+  }
+  return true;
 }
 
 async function cacheFirst(request, cacheName) {
@@ -104,7 +118,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (isStaticAsset(url.pathname)) {
+  if (isStaticAsset(url)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }

@@ -26,7 +26,7 @@ export default function SettingsPage() {
                 Supabase Connection
               </p>
               <p className="text-xs text-zinc-500">
-                Server-side service role via .env.local
+                Server-side service role via environment variables
               </p>
             </div>
           </div>
@@ -37,7 +37,7 @@ export default function SettingsPage() {
                 : "border-amber-200 bg-amber-50 text-amber-700"
             }`}
           >
-            {configured ? "Connected" : "Awaiting .env.local"}
+            {configured ? "Connected" : "Awaiting env vars"}
           </span>
         </div>
 

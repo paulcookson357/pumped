@@ -4,10 +4,30 @@ import { useEffect } from "react";
 
 export function ServiceWorkerRegistrar() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(registrations.map((reg) => reg.unregister()))
+        )
+        .catch(() => {});
+
+      if ("caches" in window) {
+        window.caches
+          .keys()
+          .then((keys) =>
+            Promise.all(
+              keys
+                .filter((key) => key.startsWith("pumped-"))
+                .map((key) => window.caches.delete(key))
+            )
+          )
+          .catch(() => {});
+      }
       return;
     }
 

@@ -64,12 +64,9 @@ export async function getSyncVersions(): Promise<SyncVersionsPayload> {
   return { versions, updatedAt };
 }
 
-export const getCachedExercises = unstable_cache(
-  async (): Promise<Exercise[]> => {
-    if (!isSupabaseConfigured()) {
-      return [];
-    }
-
+const fetchCachedExercises = unstable_cache(
+  async (version: number): Promise<Exercise[]> => {
+    void version;
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("exercises")
@@ -84,19 +81,29 @@ export const getCachedExercises = unstable_cache(
 
     return (data ?? []) as Exercise[];
   },
-  ["pumped-exercises-list"],
+  ["pumped-exercises-list-v2"],
   { tags: [CACHE_TAGS.exercises] }
 );
 
-export const getCachedRoutines = unstable_cache(
-  async (): Promise<{
+export async function getCachedExercises(
+  version?: number
+): Promise<Exercise[]> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+  const resolvedVersion =
+    version ?? (await getSyncVersions()).versions.exercises;
+  return fetchCachedExercises(resolvedVersion);
+}
+
+const fetchCachedRoutines = unstable_cache(
+  async (
+    version: number
+  ): Promise<{
     routines: Routine[];
     routineExercises: RoutineExercise[];
   }> => {
-    if (!isSupabaseConfigured()) {
-      return { routines: [], routineExercises: [] };
-    }
-
+    void version;
     const supabase = getSupabaseAdmin();
     const [routinesRes, routineExercisesRes] = await Promise.all([
       supabase
@@ -124,19 +131,30 @@ export const getCachedRoutines = unstable_cache(
       routineExercises: (routineExercisesRes.data ?? []) as RoutineExercise[],
     };
   },
-  ["pumped-routines-bundle"],
+  ["pumped-routines-bundle-v2"],
   { tags: [CACHE_TAGS.routines] }
 );
 
-export const getCachedSchedule = unstable_cache(
-  async (): Promise<{
+export async function getCachedRoutines(version?: number): Promise<{
+  routines: Routine[];
+  routineExercises: RoutineExercise[];
+}> {
+  if (!isSupabaseConfigured()) {
+    return { routines: [], routineExercises: [] };
+  }
+  const resolvedVersion =
+    version ?? (await getSyncVersions()).versions.routines;
+  return fetchCachedRoutines(resolvedVersion);
+}
+
+const fetchCachedSchedule = unstable_cache(
+  async (
+    version: number
+  ): Promise<{
     weeklySplitRules: WeeklySplitRule[];
     scheduledWorkouts: ScheduledWorkout[];
   }> => {
-    if (!isSupabaseConfigured()) {
-      return { weeklySplitRules: [], scheduledWorkouts: [] };
-    }
-
+    void version;
     const supabase = getSupabaseAdmin();
     const [rulesRes, scheduledRes] = await Promise.all([
       supabase
@@ -167,19 +185,30 @@ export const getCachedSchedule = unstable_cache(
       scheduledWorkouts: (scheduledRes.data ?? []) as ScheduledWorkout[],
     };
   },
-  ["pumped-schedule-bundle"],
+  ["pumped-schedule-bundle-v2"],
   { tags: [CACHE_TAGS.schedule] }
 );
 
-export const getCachedWorkouts = unstable_cache(
-  async (): Promise<{
+export async function getCachedSchedule(version?: number): Promise<{
+  weeklySplitRules: WeeklySplitRule[];
+  scheduledWorkouts: ScheduledWorkout[];
+}> {
+  if (!isSupabaseConfigured()) {
+    return { weeklySplitRules: [], scheduledWorkouts: [] };
+  }
+  const resolvedVersion =
+    version ?? (await getSyncVersions()).versions.schedule;
+  return fetchCachedSchedule(resolvedVersion);
+}
+
+const fetchCachedWorkouts = unstable_cache(
+  async (
+    version: number
+  ): Promise<{
     workouts: Workout[];
     workoutSets: WorkoutSet[];
   }> => {
-    if (!isSupabaseConfigured()) {
-      return { workouts: [], workoutSets: [] };
-    }
-
+    void version;
     const supabase = getSupabaseAdmin();
     const { data: workoutsData, error: workoutsErr } = await supabase
       .from("workouts")
@@ -214,16 +243,25 @@ export const getCachedWorkouts = unstable_cache(
       workoutSets: (setsData ?? []) as WorkoutSet[],
     };
   },
-  ["pumped-workouts-bundle"],
+  ["pumped-workouts-bundle-v2"],
   { tags: [CACHE_TAGS.workouts] }
 );
 
-export const getCachedSettings = unstable_cache(
-  async (): Promise<AppSettings | null> => {
-    if (!isSupabaseConfigured()) {
-      return null;
-    }
+export async function getCachedWorkouts(version?: number): Promise<{
+  workouts: Workout[];
+  workoutSets: WorkoutSet[];
+}> {
+  if (!isSupabaseConfigured()) {
+    return { workouts: [], workoutSets: [] };
+  }
+  const resolvedVersion =
+    version ?? (await getSyncVersions()).versions.workouts;
+  return fetchCachedWorkouts(resolvedVersion);
+}
 
+const fetchCachedSettings = unstable_cache(
+  async (version: number): Promise<AppSettings | null> => {
+    void version;
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("app_settings")
@@ -237,6 +275,17 @@ export const getCachedSettings = unstable_cache(
 
     return (data as AppSettings | null) ?? null;
   },
-  ["pumped-app-settings"],
+  ["pumped-app-settings-v2"],
   { tags: [CACHE_TAGS.settings] }
 );
+
+export async function getCachedSettings(
+  version?: number
+): Promise<AppSettings | null> {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+  const resolvedVersion =
+    version ?? (await getSyncVersions()).versions.settings;
+  return fetchCachedSettings(resolvedVersion);
+}
