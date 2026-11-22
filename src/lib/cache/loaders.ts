@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { z } from "zod";
 import { CACHE_TAGS } from "@/lib/cache/tags";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/server";
 import type {
@@ -14,6 +15,7 @@ import type {
   Workout,
   WorkoutSet,
 } from "@/lib/types/domain";
+import type { ExerciseProgressPoint } from "@/lib/workouts/progress";
 
 export interface SyncVersionsPayload {
   versions: Record<SyncDomain, number>;
@@ -227,7 +229,9 @@ const fetchCachedWorkouts = unstable_cache(
       throw new Error(`Failed to fetch workouts: ${workoutsErr.message}`);
     }
 
-    const workouts = (workoutsData ?? []) as Workout[];
+    const workouts = ((workoutsData ?? []) as Workout[]).map(
+      normalizeWorkoutNumeric
+    );
     if (workouts.length === 0) {
       return { workouts: [], workoutSets: [] };
     }
@@ -246,7 +250,9 @@ const fetchCachedWorkouts = unstable_cache(
 
     return {
       workouts,
-      workoutSets: (setsData ?? []) as WorkoutSet[],
+      workoutSets: ((setsData ?? []) as WorkoutSet[]).map(
+        normalizeWorkoutSetNumeric
+      ),
     };
   },
   ["pumped-workouts-bundle-v2"],
@@ -294,4 +300,116 @@ export async function getCachedSettings(
   const resolvedVersion =
     version ?? (await getSyncVersions()).versions.settings;
   return fetchCachedSettings(resolvedVersion);
+}
+
+const uuidSchema = z.string().uuid();
+
+function normalizeWorkoutNumeric(raw: Workout): Workout {
+  return {
+    ...raw,
+    total_volume: Number(raw.total_volume ?? 0),
+    total_sets: Number(raw.total_sets ?? 0),
+    pr_count: Number(raw.pr_count ?? 0),
+    duration_seconds:
+      raw.duration_seconds !== null ? Number(raw.duration_seconds) : null,
+  };
+}
+
+function normalizeWorkoutSetNumeric(raw: WorkoutSet): WorkoutSet {
+  return {
+    ...raw,
+    exercise_order: Number(raw.exercise_order),
+    superset_group:
+      raw.superset_group !== null ? Number(raw.superset_group) : null,
+    set_number: Number(raw.set_number),
+    weight: raw.weight !== null ? Number(raw.weight) : null,
+    reps: raw.reps !== null ? Number(raw.reps) : null,
+    rpe: raw.rpe !== null ? Number(raw.rpe) : null,
+    duration_seconds:
+      raw.duration_seconds !== null ? Number(raw.duration_seconds) : null,
+    rest_seconds: raw.rest_seconds !== null ? Number(raw.rest_seconds) : null,
+  };
+}
+
+export async function getWorkoutById(
+  workoutId: string
+): Promise<{ workout: Workout; sets: WorkoutSet[] } | null> {
+  if (!isSupabaseConfigured() || !uuidSchema.safeParse(workoutId).success) {
+    return null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const [workoutRes, setsRes] = await Promise.all([
+    supabase
+      .from("workouts")
+      .select("*")
+      .eq("id", workoutId)
+      .eq("status", "completed")
+      .maybeSingle(),
+    supabase
+      .from("workout_sets")
+      .select("*")
+      .eq("workout_id", workoutId)
+      .order("exercise_order", { ascending: true })
+      .order("set_number", { ascending: true }),
+  ]);
+
+  if (workoutRes.error) {
+    throw new Error(`Failed to fetch workout: ${workoutRes.error.message}`);
+  }
+  if (setsRes.error) {
+    throw new Error(`Failed to fetch workout sets: ${setsRes.error.message}`);
+  }
+
+  if (!workoutRes.data) {
+    return null;
+  }
+
+  return {
+    workout: normalizeWorkoutNumeric(workoutRes.data as Workout),
+    sets: ((setsRes.data ?? []) as WorkoutSet[]).map(normalizeWorkoutSetNumeric),
+  };
+}
+
+interface ExerciseProgressRpcRow {
+  workout_id: string;
+  workout_name: string;
+  workout_date: string;
+  completed_at: string | null;
+  max_weight: number | string;
+  best_est_1rm: number | string;
+  total_volume: number | string;
+  best_set_weight: number | string | null;
+  best_set_reps: number | null;
+}
+
+export async function getExerciseProgress(
+  exerciseId: string
+): Promise<ExerciseProgressPoint[]> {
+  if (!isSupabaseConfigured() || !uuidSchema.safeParse(exerciseId).success) {
+    return [];
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("get_exercise_progress", {
+    p_exercise_id: exerciseId,
+  });
+
+  if (error) {
+    throw new Error(`Failed to fetch exercise progress: ${error.message}`);
+  }
+
+  return ((data ?? []) as ExerciseProgressRpcRow[]).map((row) => ({
+    workout_id: row.workout_id,
+    workout_name: row.workout_name,
+    workout_date: row.workout_date,
+    completed_at: row.completed_at ?? `${row.workout_date}T12:00:00.000Z`,
+    max_weight: Number(row.max_weight ?? 0),
+    best_est_1rm: Number(row.best_est_1rm ?? 0),
+    total_volume: Number(row.total_volume ?? 0),
+    best_set_weight:
+      row.best_set_weight !== null ? Number(row.best_set_weight) : null,
+    best_set_reps:
+      row.best_set_reps !== null ? Number(row.best_set_reps) : null,
+  }));
 }

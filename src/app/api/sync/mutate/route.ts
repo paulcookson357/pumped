@@ -503,6 +503,39 @@ export async function POST(request: NextRequest) {
           appliedIds.push(mutation.id);
           break;
         }
+
+        case "DELETE_WORKOUT": {
+          const { payload } = mutation;
+
+          const { error: resetSchedErr } = await supabase
+            .from("scheduled_workouts")
+            .update({ status: "planned", workout_id: null })
+            .eq("workout_id", payload.id);
+
+          if (resetSchedErr) {
+            return NextResponse.json(
+              { error: resetSchedErr.message },
+              { status: 500 }
+            );
+          }
+
+          const { error: delWorkoutErr } = await supabase
+            .from("workouts")
+            .delete()
+            .eq("id", payload.id);
+
+          if (delWorkoutErr) {
+            return NextResponse.json(
+              { error: delWorkoutErr.message },
+              { status: 500 }
+            );
+          }
+
+          touchedDomains.add("workouts");
+          touchedDomains.add("schedule");
+          appliedIds.push(mutation.id);
+          break;
+        }
       }
     }
 

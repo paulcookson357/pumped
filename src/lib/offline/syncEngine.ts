@@ -86,7 +86,8 @@ export async function hydrateFromIndexedDB(): Promise<void> {
       item.type === "DELETE_SCHEDULED_WORKOUT"
   );
   const hasWorkoutOutbox = local.outbox.some(
-    (item) => item.type === "FINISH_WORKOUT"
+    (item) =>
+      item.type === "FINISH_WORKOUT" || item.type === "DELETE_WORKOUT"
   );
   const hasAnyCachedData =
     local.exercises.length > 0 ||

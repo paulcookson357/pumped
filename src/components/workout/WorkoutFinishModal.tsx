@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import { Award, CheckCircle2, Trophy, X } from "lucide-react";
 import { formatDayHeader } from "@/lib/dates/localDate";
@@ -220,7 +221,14 @@ export function WorkoutFinishModal({
         )}
       </div>
 
-      <footer className="pb-safe shrink-0 border-t border-zinc-200 bg-white px-4 py-3 sm:px-6">
+      <footer className="pb-safe shrink-0 space-y-2 border-t border-zinc-200 bg-white px-4 py-3 sm:px-6">
+        <Link
+          href={`/history/${workout.id}`}
+          onClick={onDismiss}
+          className="flex min-h-[44px] w-full items-center justify-center rounded-lg border border-zinc-200 bg-white text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
+        >
+          View Session Details
+        </Link>
         <button
           type="button"
           onClick={onDismiss}

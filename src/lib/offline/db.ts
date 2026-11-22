@@ -587,6 +587,52 @@ export async function putLocalCompletedWorkout(params: {
   await tx.done;
 }
 
+export async function deleteLocalWorkout(workoutId: string): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const now = new Date().toISOString();
+  const tx = db.transaction(
+    [
+      "workouts",
+      "workout_sets",
+      "scheduled_workouts",
+      "previous_performance",
+    ],
+    "readwrite"
+  );
+
+  await tx.objectStore("workouts").delete(workoutId);
+
+  const setsStore = tx.objectStore("workout_sets");
+  for (const ws of await setsStore.getAll()) {
+    if (ws.workout_id === workoutId) {
+      await setsStore.delete(ws.id);
+    }
+  }
+
+  const schedStore = tx.objectStore("scheduled_workouts");
+  for (const sw of await schedStore.getAll()) {
+    if (sw.workout_id === workoutId) {
+      await schedStore.put({
+        ...sw,
+        status: "planned",
+        workout_id: null,
+        updated_at: now,
+      });
+    }
+  }
+
+  const prevStore = tx.objectStore("previous_performance");
+  for (const prev of await prevStore.getAll()) {
+    if (prev.workout_id === workoutId) {
+      await prevStore.delete(prev.exercise_id);
+    }
+  }
+
+  await tx.done;
+}
+
 export async function getOutboxItem(
   key: string
 ): Promise<OutboxItem | undefined> {

@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CalendarRange,
   CheckCircle2,
+  ChevronRight,
   Database,
   Play,
   Plus,
@@ -605,6 +606,22 @@ export function CalendarHubClient({
                     )}
 
                     {/* Management actions */}
+                    {scheduleItem.status === "completed" &&
+                      scheduleItem.workout_id && (
+                        <div className="border-t border-zinc-100 px-4 py-2.5 sm:px-5">
+                          <Link
+                            href={`/history/${scheduleItem.workout_id}`}
+                            className="inline-flex min-h-[38px] items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+                          >
+                            <span>View Session</span>
+                            <ChevronRight
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                          </Link>
+                        </div>
+                      )}
+
                     {scheduleItem.status !== "completed" && (
                       <div className="space-y-2 border-t border-zinc-100 px-4 py-3 sm:px-5">
                         {activeWorkout?.scheduledWorkoutId === scheduleItem.id ? (
@@ -691,9 +708,10 @@ export function CalendarHubClient({
             })}
 
             {selectedDayAdHocWorkouts.map((workout) => (
-              <div
+              <Link
                 key={workout.id}
-                className="flex items-center justify-between gap-3 bg-white px-4 py-3.5 sm:px-6"
+                href={`/history/${workout.id}`}
+                className="flex items-center justify-between gap-3 bg-white px-4 py-3.5 transition-colors hover:bg-zinc-50 sm:px-6"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <CheckCircle2
@@ -710,10 +728,16 @@ export function CalendarHubClient({
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
-                  Logged
-                </span>
-              </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
+                    Logged
+                  </span>
+                  <ChevronRight
+                    className="h-4 w-4 text-zinc-400"
+                    aria-hidden="true"
+                  />
+                </div>
+              </Link>
             ))}
           </div>
         ) : (

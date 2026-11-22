@@ -117,6 +117,7 @@ interface AppDataState {
     sets: WorkoutSet[];
     scheduledWorkoutId?: string | null;
   }) => void;
+  deleteWorkoutOptimistic: (workoutId: string) => void;
 }
 
 export const useAppDataStore = create<AppDataState>((set) => ({
@@ -394,6 +395,38 @@ export const useAppDataStore = create<AppDataState>((set) => ({
           workouts: true,
           ...(workout.routine_id ? { routines: true } : {}),
           ...(scheduledWorkoutId ? { schedule: true } : {}),
+        },
+      };
+    }),
+
+  deleteWorkoutOptimistic: (workoutId) =>
+    set((state) => {
+      const now = new Date().toISOString();
+      const linkedSchedule = state.scheduledWorkouts.some(
+        (sw) => sw.workout_id === workoutId
+      );
+
+      return {
+        workouts: state.workouts.filter((w) => w.id !== workoutId),
+        workoutSets: state.workoutSets.filter(
+          (ws) => ws.workout_id !== workoutId
+        ),
+        scheduledWorkouts: linkedSchedule
+          ? state.scheduledWorkouts.map((sw) =>
+              sw.workout_id === workoutId
+                ? {
+                    ...sw,
+                    status: "planned" as const,
+                    workout_id: null,
+                    updated_at: now,
+                  }
+                : sw
+            )
+          : state.scheduledWorkouts,
+        touchedDomains: {
+          ...state.touchedDomains,
+          workouts: true,
+          ...(linkedSchedule ? { schedule: true } : {}),
         },
       };
     }),

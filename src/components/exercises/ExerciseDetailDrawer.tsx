@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Archive, ArrowLeft, ExternalLink, Pencil } from "lucide-react";
+import { Archive, ArrowLeft, ExternalLink, Pencil, TrendingUp } from "lucide-react";
 import { ExerciseVisual } from "@/components/exercises/ExerciseVisual";
 import {
   EQUIPMENT_LABELS,
@@ -93,17 +94,28 @@ export function ExerciseDetailDrawer({
             )}
           </div>
 
-          {exercise.is_custom && !readOnly && (
-            <button
-              type="button"
-              onClick={() => onEdit(exercise)}
-              aria-label="Edit custom exercise"
-              className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Link
+              href={`/exercises/${exercise.id}`}
+              onClick={onClose}
+              className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
             >
-              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Edit</span>
-            </button>
-          )}
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Progress</span>
+            </Link>
+
+            {exercise.is_custom && !readOnly && (
+              <button
+                type="button"
+                onClick={() => onEdit(exercise)}
+                aria-label="Edit custom exercise"
+                className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Edit</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

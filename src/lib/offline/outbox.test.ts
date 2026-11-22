@@ -386,4 +386,43 @@ describe("outbox coalescing and ordering", () => {
     expect(merged?.type).toBe("DELETE_SCHEDULED_WORKOUT");
     expect(merged?.createdAt).toBe(100);
   });
+
+  it("cancels out FINISH_WORKOUT followed by DELETE_WORKOUT before sync", () => {
+    const workoutId = "44444444-4444-4444-8444-444444444444";
+    const finishItem = buildOutboxItem(
+      {
+        id: "m-fin",
+        type: "FINISH_WORKOUT",
+        clientUpdatedAt: "2026-11-22T10:45:00.000Z",
+        payload: {
+          id: workoutId,
+          routine_id: null,
+          scheduled_workout_id: null,
+          name: "Quick Workout",
+          notes: null,
+          workout_date: "2026-11-22",
+          started_at: "2026-11-22T10:00:00.000Z",
+          completed_at: "2026-11-22T10:45:00.000Z",
+          duration_seconds: 2700,
+          weight_unit: "kg",
+          sets: [],
+        },
+      },
+      `workout:${workoutId}`,
+      100
+    );
+
+    const deleteItem = buildOutboxItem(
+      {
+        id: "m-del",
+        type: "DELETE_WORKOUT",
+        clientUpdatedAt: "2026-11-22T10:50:00.000Z",
+        payload: { id: workoutId },
+      },
+      `workout:${workoutId}`,
+      200
+    );
+
+    expect(coalesceMutation(finishItem, deleteItem)).toBeNull();
+  });
 });
