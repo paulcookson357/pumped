@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { TopHeader } from "@/components/layout/TopHeader";
+import { InstallBanner } from "@/components/pwa/InstallBanner";
+import { InstallGuideModal } from "@/components/pwa/InstallGuideModal";
+import { PwaUpdateBanner } from "@/components/pwa/PwaUpdateBanner";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import { SyncBootstrap } from "@/components/pwa/SyncBootstrap";
 import { ActiveWorkoutHost } from "@/components/workout/ActiveWorkoutHost";
@@ -14,6 +17,12 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Pumped",
+  },
+  formatDetection: {
+    telephone: false,
+    date: false,
+    email: false,
+    address: false,
   },
 };
 
@@ -35,8 +44,13 @@ export default function RootLayout({
         <ServiceWorkerRegistrar />
         <SyncBootstrap />
         <TopHeader />
-        <main className="w-full px-4 pt-4 pb-24 sm:px-6">{children}</main>
+        <InstallBanner />
+        <PwaUpdateBanner />
+        <main className="w-full px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6">
+          {children}
+        </main>
         <ActiveWorkoutHost />
+        <InstallGuideModal />
         <BottomNav />
       </body>
     </html>

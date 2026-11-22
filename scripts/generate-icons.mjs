@@ -205,6 +205,7 @@ fs.mkdirSync(appDir, { recursive: true });
 const pngTargets = [
   { outPath: path.join(publicIconsDir, "icon-192.png"), size: 192, maskable: false, fullBleed: false },
   { outPath: path.join(publicIconsDir, "icon-512.png"), size: 512, maskable: false, fullBleed: false },
+  { outPath: path.join(publicIconsDir, "icon-maskable-192.png"), size: 192, maskable: true, fullBleed: true },
   { outPath: path.join(publicIconsDir, "icon-maskable-512.png"), size: 512, maskable: true, fullBleed: true },
   { outPath: path.join(publicIconsDir, "apple-touch-icon.png"), size: 180, maskable: false, fullBleed: true },
   { outPath: path.join(appDir, "apple-icon.png"), size: 180, maskable: false, fullBleed: true },

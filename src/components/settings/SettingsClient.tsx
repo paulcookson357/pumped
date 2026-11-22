@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Scale, SlidersHorizontal, Timer, Volume2 } from "lucide-react";
 import { DataExportSection } from "@/components/settings/DataExportSection";
+import { PwaInstallSection } from "@/components/settings/PwaInstallSection";
 import { SyncCacheInspectorSection } from "@/components/settings/SyncCacheInspectorSection";
 import { playRestCompleteFeedback } from "@/lib/audio/restChime";
 import { putLocalSettings } from "@/lib/offline/db";
@@ -422,6 +423,8 @@ export function SettingsClient({
       </section>
 
       <DataExportSection isConfigured={isConfigured} />
+
+      <PwaInstallSection />
 
       <SyncCacheInspectorSection
         isConfigured={isConfigured}

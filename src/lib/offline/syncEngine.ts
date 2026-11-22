@@ -40,6 +40,11 @@ function isBrowserOnline(): boolean {
   return navigator.onLine;
 }
 
+function isOfflineFetchError(error: unknown): boolean {
+  if (!isBrowserOnline()) return true;
+  return error instanceof TypeError;
+}
+
 export function computeStaleDomains(params: {
   remoteVersions: Record<SyncDomain, number>;
   localVersions: Record<SyncDomain, number> | null;
@@ -185,8 +190,8 @@ export async function flushOutbox(): Promise<boolean> {
       syncStore.setSynced(new Date().toISOString());
     }
     return true;
-  } catch {
-    syncStore.setStatus(isBrowserOnline() ? "error" : "offline");
+  } catch (error: unknown) {
+    syncStore.setStatus(isOfflineFetchError(error) ? "offline" : "error");
     return false;
   }
 }
@@ -266,8 +271,8 @@ async function runSyncIfStale(): Promise<{ changedDomains: SyncDomain[] }> {
     }
 
     return { changedDomains: staleDomains };
-  } catch {
-    syncStore.setStatus(isBrowserOnline() ? "error" : "offline");
+  } catch (error: unknown) {
+    syncStore.setStatus(isOfflineFetchError(error) ? "offline" : "error");
     return { changedDomains: [] };
   }
 }

@@ -16,6 +16,7 @@ import { ActiveExerciseBlock } from "@/components/workout/ActiveExerciseBlock";
 import { RestTimerBanner } from "@/components/workout/RestTimerBanner";
 import { putLocalRoutineBundle } from "@/lib/offline/db";
 import { enqueueAndSync } from "@/lib/offline/syncEngine";
+import { useWakeLock } from "@/lib/pwa/useWakeLock";
 import { replaceExerciseInRoutineTemplate } from "@/lib/routines/swap";
 import { getSupersetPositions } from "@/lib/routines/supersets";
 import type { Exercise, RoutineExercise } from "@/lib/types/domain";
@@ -49,6 +50,8 @@ export function ActiveWorkoutSheet() {
   const routineExercises = useAppDataStore((state) => state.routineExercises);
   const settings = useAppDataStore((state) => state.settings);
   const startRestTimer = useRestTimerStore((state) => state.start);
+
+  useWakeLock(Boolean(activeWorkout && sheetOpen));
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [quickRestOpen, setQuickRestOpen] = useState(false);
