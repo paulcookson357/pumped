@@ -32,16 +32,19 @@ interface AppDataState {
   workouts: Workout[];
   workoutSets: WorkoutSet[];
   settings: AppSettings | null;
-  hydrateAll: (data: {
-    exercises: Exercise[];
-    routines: Routine[];
-    routineExercises: RoutineExercise[];
-    weeklySplitRules: WeeklySplitRule[];
-    scheduledWorkouts: ScheduledWorkout[];
-    workouts: Workout[];
-    workoutSets: WorkoutSet[];
-    settings: AppSettings | null;
-  }) => void;
+  hydrateAll: (
+    data: {
+      exercises: Exercise[];
+      routines: Routine[];
+      routineExercises: RoutineExercise[];
+      weeklySplitRules: WeeklySplitRule[];
+      scheduledWorkouts: ScheduledWorkout[];
+      workouts: Workout[];
+      workoutSets: WorkoutSet[];
+      settings: AppSettings | null;
+    },
+    options?: { preserveNonEmptyExercises?: boolean }
+  ) => void;
   applyDomainPayloads: (payload: SnapshotDomainPayloads) => void;
   setExercises: (exercises: Exercise[]) => void;
   upsertExerciseOptimistic: (exercise: Exercise) => void;
@@ -59,10 +62,15 @@ export const useAppDataStore = create<AppDataState>((set) => ({
   workoutSets: [],
   settings: null,
 
-  hydrateAll: (data) =>
-    set({
+  hydrateAll: (data, options) =>
+    set((state) => ({
       hydrated: true,
-      exercises: sortExercises(data.exercises),
+      exercises:
+        options?.preserveNonEmptyExercises &&
+        data.exercises.length === 0 &&
+        state.exercises.length > 0
+          ? state.exercises
+          : sortExercises(data.exercises),
       routines: data.routines,
       routineExercises: data.routineExercises,
       weeklySplitRules: data.weeklySplitRules,
@@ -70,7 +78,7 @@ export const useAppDataStore = create<AppDataState>((set) => ({
       workouts: data.workouts,
       workoutSets: data.workoutSets,
       settings: data.settings,
-    }),
+    })),
 
   applyDomainPayloads: (payload) =>
     set((state) => ({

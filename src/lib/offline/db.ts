@@ -214,6 +214,12 @@ export async function readLocalVersions(): Promise<Record<
   return record ? record.versions : null;
 }
 
+export async function readLocalExerciseCount(): Promise<number> {
+  const db = await getDB();
+  if (!db) return 0;
+  return db.count("exercises");
+}
+
 export async function writeLocalVersions(
   versions: Record<SyncDomain, number>
 ): Promise<void> {

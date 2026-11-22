@@ -6,6 +6,7 @@ import {
   getOutboxItems,
   putOutboxItem,
   readAllLocalData,
+  readLocalExerciseCount,
   readLocalVersions,
   removeOutboxItems,
   writeDomainSnapshot,
@@ -38,8 +39,40 @@ function isBrowserOnline(): boolean {
   return navigator.onLine;
 }
 
+export function computeStaleDomains(params: {
+  remoteVersions: Record<SyncDomain, number>;
+  localVersions: Record<SyncDomain, number> | null;
+  localExerciseCount: number;
+}): SyncDomain[] {
+  const { remoteVersions, localVersions, localExerciseCount } = params;
+  if (!localVersions) {
+    return [...ALL_DOMAINS];
+  }
+
+  const stale = ALL_DOMAINS.filter(
+    (domain) => remoteVersions[domain] !== localVersions[domain]
+  );
+
+  // Self-heal if an earlier poisoned snapshot cached 0 exercises after seed
+  if (
+    localExerciseCount === 0 &&
+    remoteVersions.exercises > 1 &&
+    !stale.includes("exercises")
+  ) {
+    stale.push("exercises");
+  }
+
+  return stale;
+}
+
 export async function hydrateFromIndexedDB(): Promise<void> {
   const local = await readAllLocalData();
+  const hasExerciseOutbox = local.outbox.some(
+    (item) =>
+      item.type === "CREATE_EXERCISE" ||
+      item.type === "UPDATE_EXERCISE" ||
+      item.type === "ARCHIVE_EXERCISE"
+  );
   const hasAnyCachedData =
     local.exercises.length > 0 ||
     local.routines.length > 0 ||
@@ -47,7 +80,9 @@ export async function hydrateFromIndexedDB(): Promise<void> {
     local.settings !== null;
 
   if (hasAnyCachedData) {
-    useAppDataStore.getState().hydrateAll(local);
+    useAppDataStore.getState().hydrateAll(local, {
+      preserveNonEmptyExercises: !hasExerciseOutbox,
+    });
   }
   useSyncStore.getState().setPendingCount(local.outbox.length);
   if (!isBrowserOnline()) {
@@ -158,12 +193,16 @@ async function runSyncIfStale(): Promise<{ changedDomains: SyncDomain[] }> {
       versions: Record<SyncDomain, number>;
     };
 
-    const localVersions = await readLocalVersions();
-    const staleDomains = localVersions
-      ? ALL_DOMAINS.filter(
-          (domain) => remoteMeta.versions[domain] !== localVersions[domain]
-        )
-      : [...ALL_DOMAINS];
+    const [localVersions, localExerciseCount] = await Promise.all([
+      readLocalVersions(),
+      readLocalExerciseCount(),
+    ]);
+
+    const staleDomains = computeStaleDomains({
+      remoteVersions: remoteMeta.versions,
+      localVersions,
+      localExerciseCount,
+    });
 
     if (staleDomains.length === 0) {
       const remaining = await getOutboxItems();

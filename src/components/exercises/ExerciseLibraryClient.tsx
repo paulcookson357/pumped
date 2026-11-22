@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Dumbbell, Plus, Search, X } from "lucide-react";
 import { CustomExerciseDrawer } from "@/components/exercises/CustomExerciseDrawer";
 import { ExerciseDetailDrawer } from "@/components/exercises/ExerciseDetailDrawer";
@@ -11,8 +11,10 @@ import {
   MUSCLE_GROUPS,
   MUSCLE_LABELS,
 } from "@/lib/exercises/labels";
+import { writeDomainSnapshot } from "@/lib/offline/db";
 import type { EquipmentType, Exercise, MuscleGroup } from "@/lib/types/domain";
 import { useAppDataStore } from "@/stores/useAppDataStore";
+import { useSyncStore } from "@/stores/useSyncStore";
 
 interface ExerciseLibraryClientProps {
   initialExercises: Exercise[];
@@ -22,7 +24,25 @@ export function ExerciseLibraryClient({
   initialExercises,
 }: ExerciseLibraryClientProps) {
   const { hydrated, exercises: storeExercises } = useAppDataStore();
-  const exercises = hydrated ? storeExercises : initialExercises;
+  const pendingCount = useSyncStore((state) => state.pendingCount);
+
+  const shouldReconcileServerExercises =
+    hydrated &&
+    storeExercises.length === 0 &&
+    initialExercises.length > 0 &&
+    pendingCount === 0;
+
+  useEffect(() => {
+    if (shouldReconcileServerExercises) {
+      useAppDataStore.getState().setExercises(initialExercises);
+      void writeDomainSnapshot({ exercises: initialExercises });
+    }
+  }, [shouldReconcileServerExercises, initialExercises]);
+
+  const exercises =
+    !hydrated || shouldReconcileServerExercises
+      ? initialExercises
+      : storeExercises;
 
   const [query, setQuery] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | "all">("all");
