@@ -1,6 +1,6 @@
-const SHELL_CACHE = "pumped-shell-v2";
-const STATIC_CACHE = "pumped-static-v2";
-const MEDIA_CACHE = "pumped-media-v2";
+const SHELL_CACHE = "pumped-shell-v3";
+const STATIC_CACHE = "pumped-static-v3";
+const MEDIA_CACHE = "pumped-media-v3";
 
 const PRECACHE_ROUTES = [
   "/",

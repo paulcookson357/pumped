@@ -98,11 +98,6 @@ export function ExerciseVisual({
             onError={() => markFailed(activeSrc)}
             className="h-full w-full object-contain"
           />
-          {gifUrl && (
-            <span className="absolute top-3 right-4 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 sm:right-6">
-              GIF Demo
-            </span>
-          )}
           {usingPhotoFlipbook && hasTwoFrames && (
             <div className="absolute inset-x-4 bottom-3 flex items-center justify-between sm:inset-x-6">
               <span className="tabular-nums rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-700">
