@@ -73,15 +73,31 @@ export async function hydrateFromIndexedDB(): Promise<void> {
       item.type === "UPDATE_EXERCISE" ||
       item.type === "ARCHIVE_EXERCISE"
   );
+  const hasRoutineOutbox = local.outbox.some(
+    (item) =>
+      item.type === "UPSERT_ROUTINE" ||
+      item.type === "REORDER_ROUTINES" ||
+      item.type === "ARCHIVE_ROUTINE"
+  );
+  const hasScheduleOutbox = local.outbox.some(
+    (item) =>
+      item.type === "SAVE_WEEKLY_SPLIT" ||
+      item.type === "UPSERT_SCHEDULED_WORKOUT" ||
+      item.type === "DELETE_SCHEDULED_WORKOUT"
+  );
   const hasAnyCachedData =
     local.exercises.length > 0 ||
     local.routines.length > 0 ||
+    local.weeklySplitRules.length > 0 ||
+    local.scheduledWorkouts.length > 0 ||
     local.workouts.length > 0 ||
     local.settings !== null;
 
   if (hasAnyCachedData) {
     useAppDataStore.getState().hydrateAll(local, {
       preserveNonEmptyExercises: !hasExerciseOutbox,
+      preserveNonEmptyRoutines: !hasRoutineOutbox,
+      preserveNonEmptySchedule: !hasScheduleOutbox,
     });
   }
   useSyncStore.getState().setPendingCount(local.outbox.length);

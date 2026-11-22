@@ -23,11 +23,13 @@ interface ExerciseLibraryClientProps {
 export function ExerciseLibraryClient({
   initialExercises,
 }: ExerciseLibraryClientProps) {
-  const { hydrated, exercises: storeExercises } = useAppDataStore();
+  const { hydrated, touchedDomains, exercises: storeExercises } =
+    useAppDataStore();
   const pendingCount = useSyncStore((state) => state.pendingCount);
 
   const shouldReconcileServerExercises =
     hydrated &&
+    !touchedDomains.exercises &&
     storeExercises.length === 0 &&
     initialExercises.length > 0 &&
     pendingCount === 0;

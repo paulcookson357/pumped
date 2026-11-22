@@ -15,12 +15,14 @@ import { useAppDataStore } from "@/stores/useAppDataStore";
 
 interface ExerciseDetailDrawerProps {
   exercise: Exercise | null;
+  readOnly?: boolean;
   onClose: () => void;
   onEdit: (exercise: Exercise) => void;
 }
 
 export function ExerciseDetailDrawer({
   exercise,
+  readOnly = false,
   onClose,
   onEdit,
 }: ExerciseDetailDrawerProps) {
@@ -89,7 +91,7 @@ export function ExerciseDetailDrawer({
             )}
           </div>
 
-          {exercise.is_custom && (
+          {exercise.is_custom && !readOnly && (
             <button
               type="button"
               onClick={() => onEdit(exercise)}
@@ -194,7 +196,7 @@ export function ExerciseDetailDrawer({
         </div>
 
         {/* Custom exercise management footer */}
-        {exercise.is_custom && (
+        {exercise.is_custom && !readOnly && (
           <div className="border-t border-zinc-200 px-4 py-5 sm:px-6">
             {!confirmArchive ? (
               <div className="flex gap-3">

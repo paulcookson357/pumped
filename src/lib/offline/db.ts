@@ -190,6 +190,17 @@ export async function readAllLocalData(): Promise<LocalSnapshotData> {
     }
     return a.name.localeCompare(b.name);
   });
+  routines.sort((a, b) => a.sort_order - b.sort_order);
+  routineExercises.sort((a, b) => a.sort_order - b.sort_order);
+  weeklySplitRules.sort((a, b) => {
+    if (a.day_of_week !== b.day_of_week) {
+      return a.day_of_week - b.day_of_week;
+    }
+    return a.sort_order - b.sort_order;
+  });
+  scheduledWorkouts.sort((a, b) =>
+    a.scheduled_date.localeCompare(b.scheduled_date)
+  );
 
   return {
     exercises,
@@ -324,6 +335,129 @@ export async function deleteLocalExercise(id: string): Promise<void> {
   const db = await getDB();
   if (!db) return;
   await db.delete("exercises", id);
+}
+
+export async function putLocalRoutineBundle(
+  routine: Routine,
+  exercises: RoutineExercise[]
+): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const tx = db.transaction(["routines", "routine_exercises"], "readwrite");
+  await tx.objectStore("routines").put(routine);
+
+  const reStore = tx.objectStore("routine_exercises");
+  const existing = await reStore.getAll();
+  for (const row of existing) {
+    if (row.routine_id === routine.id) {
+      await reStore.delete(row.id);
+    }
+  }
+  for (const row of exercises) {
+    await reStore.put(row);
+  }
+  await tx.done;
+}
+
+export async function reorderLocalRoutines(orderedIds: string[]): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const orderMap = new Map(orderedIds.map((id, idx) => [id, idx]));
+  const now = new Date().toISOString();
+  const tx = db.transaction("routines", "readwrite");
+  const existing = await tx.store.getAll();
+  for (const routine of existing) {
+    const nextOrder = orderMap.get(routine.id);
+    if (nextOrder !== undefined) {
+      await tx.store.put({
+        ...routine,
+        sort_order: nextOrder,
+        updated_at: now,
+      });
+    }
+  }
+  await tx.done;
+}
+
+export async function archiveLocalRoutine(routineId: string): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const tx = db.transaction(
+    ["routines", "routine_exercises", "weekly_split_rules", "scheduled_workouts"],
+    "readwrite"
+  );
+
+  await tx.objectStore("routines").delete(routineId);
+
+  const reStore = tx.objectStore("routine_exercises");
+  for (const row of await reStore.getAll()) {
+    if (row.routine_id === routineId) {
+      await reStore.delete(row.id);
+    }
+  }
+
+  const ruleStore = tx.objectStore("weekly_split_rules");
+  for (const rule of await ruleStore.getAll()) {
+    if (rule.routine_id === routineId) {
+      await ruleStore.delete(rule.id);
+    }
+  }
+
+  const schedStore = tx.objectStore("scheduled_workouts");
+  for (const sw of await schedStore.getAll()) {
+    if (sw.routine_id === routineId && sw.status === "planned") {
+      await schedStore.delete(sw.id);
+    }
+  }
+
+  await tx.done;
+}
+
+export async function putLocalWeeklySplitAndSchedule(params: {
+  rules: WeeklySplitRule[];
+  removePlannedIds: string[];
+  generatedWorkouts: ScheduledWorkout[];
+}): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const tx = db.transaction(
+    ["weekly_split_rules", "scheduled_workouts"],
+    "readwrite"
+  );
+
+  const ruleStore = tx.objectStore("weekly_split_rules");
+  await ruleStore.clear();
+  for (const rule of params.rules) {
+    await ruleStore.put(rule);
+  }
+
+  const schedStore = tx.objectStore("scheduled_workouts");
+  for (const removeId of params.removePlannedIds) {
+    await schedStore.delete(removeId);
+  }
+  for (const sw of params.generatedWorkouts) {
+    await schedStore.put(sw);
+  }
+
+  await tx.done;
+}
+
+export async function putLocalScheduledWorkout(
+  item: ScheduledWorkout
+): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+  await db.put("scheduled_workouts", item);
+}
+
+export async function deleteLocalScheduledWorkout(id: string): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+  await db.delete("scheduled_workouts", id);
 }
 
 export async function getOutboxItem(

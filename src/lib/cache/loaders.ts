@@ -126,9 +126,15 @@ const fetchCachedRoutines = unstable_cache(
       );
     }
 
+    const routines = (routinesRes.data ?? []) as Routine[];
+    const activeIds = new Set(routines.map((r) => r.id));
+    const routineExercises = (
+      (routineExercisesRes.data ?? []) as RoutineExercise[]
+    ).filter((re) => activeIds.has(re.routine_id));
+
     return {
-      routines: (routinesRes.data ?? []) as Routine[],
-      routineExercises: (routineExercisesRes.data ?? []) as RoutineExercise[],
+      routines,
+      routineExercises,
     };
   },
   ["pumped-routines-bundle-v2"],

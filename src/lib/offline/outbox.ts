@@ -1,14 +1,26 @@
 import type {
   ArchiveExerciseInput,
+  ArchiveRoutinePayload,
   CreateExerciseInput,
+  DeleteScheduledWorkoutPayload,
+  ReorderRoutinesPayload,
+  SaveWeeklySplitPayload,
   SyncMutation,
   UpdateExerciseInput,
+  UpsertRoutinePayload,
+  UpsertScheduledWorkoutPayload,
 } from "@/lib/validation/schemas";
 
 export const MUTATION_PRIORITY: Record<SyncMutation["type"], number> = {
   CREATE_EXERCISE: 10,
   UPDATE_EXERCISE: 11,
   ARCHIVE_EXERCISE: 12,
+  UPSERT_ROUTINE: 20,
+  REORDER_ROUTINES: 21,
+  ARCHIVE_ROUTINE: 22,
+  SAVE_WEEKLY_SPLIT: 30,
+  UPSERT_SCHEDULED_WORKOUT: 31,
+  DELETE_SCHEDULED_WORKOUT: 32,
 };
 
 interface OutboxBase {
@@ -32,6 +44,30 @@ export type OutboxItem =
   | (OutboxBase & {
       type: "ARCHIVE_EXERCISE";
       payload: ArchiveExerciseInput;
+    })
+  | (OutboxBase & {
+      type: "UPSERT_ROUTINE";
+      payload: UpsertRoutinePayload;
+    })
+  | (OutboxBase & {
+      type: "REORDER_ROUTINES";
+      payload: ReorderRoutinesPayload;
+    })
+  | (OutboxBase & {
+      type: "ARCHIVE_ROUTINE";
+      payload: ArchiveRoutinePayload;
+    })
+  | (OutboxBase & {
+      type: "SAVE_WEEKLY_SPLIT";
+      payload: SaveWeeklySplitPayload;
+    })
+  | (OutboxBase & {
+      type: "UPSERT_SCHEDULED_WORKOUT";
+      payload: UpsertScheduledWorkoutPayload;
+    })
+  | (OutboxBase & {
+      type: "DELETE_SCHEDULED_WORKOUT";
+      payload: DeleteScheduledWorkoutPayload;
     });
 
 export function buildOutboxItem(
@@ -55,6 +91,26 @@ export function buildOutboxItem(
       return { ...base, type: "UPDATE_EXERCISE", payload: mutation.payload };
     case "ARCHIVE_EXERCISE":
       return { ...base, type: "ARCHIVE_EXERCISE", payload: mutation.payload };
+    case "UPSERT_ROUTINE":
+      return { ...base, type: "UPSERT_ROUTINE", payload: mutation.payload };
+    case "REORDER_ROUTINES":
+      return { ...base, type: "REORDER_ROUTINES", payload: mutation.payload };
+    case "ARCHIVE_ROUTINE":
+      return { ...base, type: "ARCHIVE_ROUTINE", payload: mutation.payload };
+    case "SAVE_WEEKLY_SPLIT":
+      return { ...base, type: "SAVE_WEEKLY_SPLIT", payload: mutation.payload };
+    case "UPSERT_SCHEDULED_WORKOUT":
+      return {
+        ...base,
+        type: "UPSERT_SCHEDULED_WORKOUT",
+        payload: mutation.payload,
+      };
+    case "DELETE_SCHEDULED_WORKOUT":
+      return {
+        ...base,
+        type: "DELETE_SCHEDULED_WORKOUT",
+        payload: mutation.payload,
+      };
   }
 }
 
@@ -121,6 +177,48 @@ export function toSyncMutation(item: OutboxItem): SyncMutation {
       return {
         id: item.id,
         type: "ARCHIVE_EXERCISE",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "UPSERT_ROUTINE":
+      return {
+        id: item.id,
+        type: "UPSERT_ROUTINE",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "REORDER_ROUTINES":
+      return {
+        id: item.id,
+        type: "REORDER_ROUTINES",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "ARCHIVE_ROUTINE":
+      return {
+        id: item.id,
+        type: "ARCHIVE_ROUTINE",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "SAVE_WEEKLY_SPLIT":
+      return {
+        id: item.id,
+        type: "SAVE_WEEKLY_SPLIT",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "UPSERT_SCHEDULED_WORKOUT":
+      return {
+        id: item.id,
+        type: "UPSERT_SCHEDULED_WORKOUT",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "DELETE_SCHEDULED_WORKOUT":
+      return {
+        id: item.id,
+        type: "DELETE_SCHEDULED_WORKOUT",
         clientUpdatedAt: item.clientUpdatedAt,
         payload: item.payload,
       };
