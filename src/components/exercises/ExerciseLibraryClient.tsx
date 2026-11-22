@@ -129,6 +129,7 @@ export function ExerciseLibraryClient({
           aria-hidden="true"
         />
         <input
+          id="library-exercise-search"
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -226,7 +227,10 @@ export function ExerciseLibraryClient({
       {filteredExercises.length > 0 ? (
         <ul className="-mx-4 divide-y divide-zinc-200 sm:-mx-6">
           {filteredExercises.map((exercise) => (
-            <li key={exercise.id}>
+            <li
+              key={exercise.id}
+              className="[content-visibility:auto] [contain-intrinsic-size:72px]"
+            >
               <button
                 type="button"
                 onClick={() => setDetailExercise(exercise)}

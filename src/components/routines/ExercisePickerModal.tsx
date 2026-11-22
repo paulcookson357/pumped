@@ -201,7 +201,10 @@ export function ExercisePickerModal({
             {filtered.map((exercise) => {
               const isSelected = selectedSet.has(exercise.id);
               return (
-                <li key={exercise.id}>
+                <li
+                  key={exercise.id}
+                  className="[content-visibility:auto] [contain-intrinsic-size:72px]"
+                >
                   <button
                     type="button"
                     onClick={() => handleSelectRow(exercise.id)}
