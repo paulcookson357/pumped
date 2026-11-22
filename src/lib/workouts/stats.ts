@@ -6,6 +6,7 @@ import type {
   Workout,
   WorkoutSet,
 } from "@/lib/types/domain";
+import { formatCardioSetSummary } from "@/lib/workouts/cardio";
 
 export interface WorkoutTotalsSummary {
   totalVolume: number;
@@ -279,6 +280,10 @@ export function derivePreviousPerformanceFromLocal(
           reps: s.reps,
           rpe: s.rpe,
           duration_seconds: s.duration_seconds,
+          distance: s.distance,
+          speed: s.speed,
+          resistance: s.resistance,
+          incline: s.incline,
         })),
       };
       break;
@@ -314,6 +319,10 @@ export function formatPreviousSetLabel(
         weight: number | null;
         reps: number | null;
         duration_seconds: number | null;
+        distance?: number | null;
+        speed?: number | null;
+        resistance?: number | null;
+        incline?: number | null;
       }
     | undefined,
   trackingType: TrackingType,
@@ -321,6 +330,10 @@ export function formatPreviousSetLabel(
 ): string {
   if (!prevSet) {
     return "—";
+  }
+
+  if (trackingType === "cardio") {
+    return formatCardioSetSummary(prevSet, weightUnit);
   }
 
   if (trackingType === "duration") {

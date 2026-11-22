@@ -28,6 +28,10 @@ export interface PreviousPerformanceRecord {
     reps: number | null;
     rpe: number | null;
     duration_seconds: number | null;
+    distance?: number | null;
+    speed?: number | null;
+    resistance?: number | null;
+    incline?: number | null;
   }>;
   updated_at: string;
 }

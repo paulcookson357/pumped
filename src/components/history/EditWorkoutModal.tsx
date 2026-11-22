@@ -14,6 +14,11 @@ import { enqueueAndSync } from "@/lib/offline/syncEngine";
 import { getSupersetPositions } from "@/lib/routines/supersets";
 import type { Exercise, Workout, WorkoutSet } from "@/lib/types/domain";
 import { updateWorkoutPayloadSchema } from "@/lib/validation/schemas";
+import {
+  formatCardioDecimal,
+  formatCardioDurationInput,
+  parseCardioTimeInput,
+} from "@/lib/workouts/cardio";
 import { groupWorkoutSetsByExercise } from "@/lib/workouts/progress";
 import { computeOptimisticPRs, computeWorkoutTotals } from "@/lib/workouts/stats";
 import { useAppDataStore } from "@/stores/useAppDataStore";
@@ -27,34 +32,51 @@ interface EditWorkoutModalProps {
   onClose: () => void;
 }
 
-function buildInitialDrafts(sets: WorkoutSet[]): EditableExerciseDraft[] {
+function buildInitialDrafts(
+  sets: WorkoutSet[],
+  exerciseMap: Map<string, Exercise>
+): EditableExerciseDraft[] {
   const groups = groupWorkoutSetsByExercise(sets.filter((s) => s.is_completed));
-  return groups.map((group) => ({
-    draftId: crypto.randomUUID(),
-    exerciseId: group.exerciseId,
-    supersetGroup: group.supersetGroup,
-    notes: group.notes,
-    sets: group.sets.map((ws) => ({
-      id: ws.id,
-      setType: ws.set_type,
-      weight: ws.weight !== null ? String(ws.weight) : "",
-      reps: ws.reps !== null ? String(ws.reps) : "",
-      rpe: ws.rpe,
-      durationSeconds:
-        ws.duration_seconds !== null ? String(ws.duration_seconds) : "",
-      restSeconds: ws.rest_seconds,
-      notes: ws.notes,
-      completedAt: ws.completed_at,
-    })),
-  }));
+  return groups.map((group) => {
+    const isCardio = exerciseMap.get(group.exerciseId)?.tracking_type === "cardio";
+    return {
+      draftId: crypto.randomUUID(),
+      exerciseId: group.exerciseId,
+      supersetGroup: group.supersetGroup,
+      notes: group.notes,
+      sets: group.sets.map((ws) => ({
+        id: ws.id,
+        setType: ws.set_type,
+        weight: ws.weight !== null ? String(ws.weight) : "",
+        reps: ws.reps !== null ? String(ws.reps) : "",
+        rpe: ws.rpe,
+        durationSeconds: isCardio
+          ? formatCardioDurationInput(ws.duration_seconds)
+          : ws.duration_seconds !== null
+            ? String(ws.duration_seconds)
+            : "",
+        distance: formatCardioDecimal(ws.distance),
+        speed: formatCardioDecimal(ws.speed),
+        resistance: formatCardioDecimal(ws.resistance),
+        incline: formatCardioDecimal(ws.incline),
+        restSeconds: ws.rest_seconds,
+        notes: ws.notes,
+        completedAt: ws.completed_at,
+      })),
+    };
+  });
 }
 
-function parseOptionalNumber(raw: string, integer = false): number | null {
+function parseOptionalNumber(
+  raw: string,
+  integer = false,
+  min = 0
+): number | null {
   const trimmed = raw.trim();
   if (trimmed.length === 0) return null;
   const num = Number(trimmed);
-  if (!Number.isFinite(num) || num < 0) return NaN;
-  return integer ? Math.trunc(num) : num;
+  if (!Number.isFinite(num) || num < min) return NaN;
+  return integer ? Math.trunc(num) : Math.round((num + Number.EPSILON) * 100) / 100;
 }
 
 export function EditWorkoutModal({
@@ -78,6 +100,11 @@ export function EditWorkoutModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const exerciseMap = useMemo(
+    () => new Map(exercises.map((ex) => [ex.id, ex])),
+    [exercises]
+  );
+
   useEffect(() => {
     if (!open) return;
     setName(workout.name);
@@ -86,10 +113,10 @@ export function EditWorkoutModal({
       String(Math.max(0, Math.round((workout.duration_seconds ?? 0) / 60)))
     );
     setNotes(workout.notes ?? "");
-    setDraftExercises(buildInitialDrafts(sets));
+    setDraftExercises(buildInitialDrafts(sets, exerciseMap));
     setPickerOpen(false);
     setErrorMessage(null);
-  }, [open, workout, sets]);
+  }, [open, workout, sets, exerciseMap]);
 
   useEffect(() => {
     if (!open || pickerOpen) return;
@@ -99,11 +126,6 @@ export function EditWorkoutModal({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, pickerOpen, onClose]);
-
-  const exerciseMap = useMemo(
-    () => new Map(exercises.map((ex) => [ex.id, ex])),
-    [exercises]
-  );
 
   const supersetLabels = useMemo(
     () =>
@@ -148,6 +170,10 @@ export function EditWorkoutModal({
           reps: last?.reps ?? "",
           rpe: last?.rpe ?? null,
           durationSeconds: last?.durationSeconds ?? "",
+          distance: last?.distance ?? "",
+          speed: last?.speed ?? "",
+          resistance: last?.resistance ?? "",
+          incline: last?.incline ?? "",
           restSeconds: last?.restSeconds ?? null,
           notes: null,
           completedAt: null,
@@ -185,6 +211,10 @@ export function EditWorkoutModal({
           reps: "",
           rpe: null,
           durationSeconds: "",
+          distance: "",
+          speed: "",
+          resistance: "",
+          incline: "",
           restSeconds: null,
           notes: null,
           completedAt: null,
@@ -221,10 +251,59 @@ export function EditWorkoutModal({
     for (let exOrder = 0; exOrder < draftExercises.length; exOrder += 1) {
       const exDraft = draftExercises[exOrder];
       if (!exDraft) continue;
+      const isCardio = exerciseMap.get(exDraft.exerciseId)?.tracking_type === "cardio";
 
       for (let sIdx = 0; sIdx < exDraft.sets.length; sIdx += 1) {
         const s = exDraft.sets[sIdx];
         if (!s) continue;
+
+        if (isCardio) {
+          const trimmedTime = s.durationSeconds.trim();
+          const d = parseCardioTimeInput(s.durationSeconds);
+          if (trimmedTime.length > 0 && d === null) {
+            setErrorMessage(
+              "Cardio time must be formatted like 20:00 or total minutes (e.g. 20)."
+            );
+            return;
+          }
+          const distance = parseOptionalNumber(s.distance, false, 0);
+          const speed = parseOptionalNumber(s.speed, false, 0);
+          const resistance = parseOptionalNumber(s.resistance, false, 0);
+          const incline = parseOptionalNumber(s.incline, false, -15);
+          if (
+            Number.isNaN(distance) ||
+            Number.isNaN(speed) ||
+            Number.isNaN(resistance) ||
+            Number.isNaN(incline)
+          ) {
+            setErrorMessage(
+              "Cardio distance, speed, resistance, and incline must be valid numbers."
+            );
+            return;
+          }
+
+          payloadSets.push({
+            id: s.id,
+            exercise_id: exDraft.exerciseId,
+            exercise_order: exOrder,
+            superset_group: exDraft.supersetGroup,
+            set_number: sIdx + 1,
+            set_type: s.setType,
+            weight: null,
+            reps: null,
+            rpe: s.rpe,
+            duration_seconds: d,
+            distance,
+            speed,
+            resistance,
+            incline,
+            rest_seconds: s.restSeconds,
+            is_completed: true,
+            completed_at: s.completedAt ?? effectiveCompletedAt,
+            notes: sIdx === 0 ? exDraft.notes : s.notes,
+          });
+          continue;
+        }
 
         const w = parseOptionalNumber(s.weight, false);
         const r = parseOptionalNumber(s.reps, true);
@@ -245,6 +324,10 @@ export function EditWorkoutModal({
           reps: r,
           rpe: s.rpe,
           duration_seconds: d,
+          distance: null,
+          speed: null,
+          resistance: null,
+          incline: null,
           rest_seconds: s.restSeconds,
           is_completed: true,
           completed_at: s.completedAt ?? effectiveCompletedAt,

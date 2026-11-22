@@ -16,6 +16,7 @@ export const MUSCLE_LABELS: Record<MuscleGroup, string> = {
   calves: "Calves",
   core: "Core",
   forearms: "Forearms",
+  cardio: "Cardio",
 };
 
 export const EQUIPMENT_LABELS: Record<EquipmentType, string> = {
@@ -26,6 +27,7 @@ export const EQUIPMENT_LABELS: Record<EquipmentType, string> = {
   bodyweight: "Bodyweight",
   kettlebell: "Kettlebell",
   smith_machine: "Smith Machine",
+  cardio_machine: "Cardio Machine",
   other: "Other",
 };
 
@@ -34,6 +36,7 @@ export const TRACKING_LABELS: Record<TrackingType, string> = {
   bodyweight_reps: "Bodyweight Reps",
   weighted_bodyweight: "Weighted Bodyweight",
   duration: "Duration",
+  cardio: "Cardio",
 };
 
 export const MUSCLE_GROUPS = Object.keys(MUSCLE_LABELS) as MuscleGroup[];

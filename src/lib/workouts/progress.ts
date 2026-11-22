@@ -9,7 +9,13 @@ import type { Workout, WorkoutSet } from "@/lib/types/domain";
 
 export type ProgressTimeRange = "1M" | "3M" | "6M" | "1Y" | "ALL";
 
-export type ProgressMetric = "est_1rm" | "max_weight" | "total_volume";
+export type ProgressMetric =
+  | "est_1rm"
+  | "max_weight"
+  | "total_volume"
+  | "duration_minutes"
+  | "total_distance"
+  | "max_speed";
 
 export interface ExerciseProgressPoint {
   workout_id: string;
@@ -21,12 +27,22 @@ export interface ExerciseProgressPoint {
   total_volume: number;
   best_set_weight: number | null;
   best_set_reps: number | null;
+  total_duration_seconds: number;
+  total_distance: number;
+  max_speed: number;
+  max_resistance: number;
+  max_incline: number;
 }
 
 export interface ExercisePersonalBests {
   allTimeMaxWeight: number;
   allTimeBest1RM: number;
   allTimeBestSetVolume: number;
+  allTimeBestDurationSeconds: number;
+  allTimeBestDistance: number;
+  allTimeMaxSpeed: number;
+  allTimeMaxResistance: number;
+  allTimeMaxIncline: number;
   totalSessions: number;
   totalWorkingSets: number;
 }
@@ -108,6 +124,11 @@ export function deriveExerciseProgressFromLocal(
     let totalVolume = 0;
     let bestSet: WorkoutSet | null = null;
     let bestRankScore = -1;
+    let totalDurationSeconds = 0;
+    let totalDistance = 0;
+    let maxSpeed = 0;
+    let maxResistance = 0;
+    let maxIncline = 0;
 
     const ordered = [...exSets].sort((a, b) => a.set_number - b.set_number);
 
@@ -120,6 +141,17 @@ export function deriveExerciseProgressFromLocal(
       if (w > maxWeight) maxWeight = w;
       if (est1RM > bestEst1RM) bestEst1RM = est1RM;
       totalVolume += setVol;
+
+      const dur = ws.duration_seconds ?? 0;
+      const dist = ws.distance ?? 0;
+      const spd = ws.speed ?? 0;
+      const res = ws.resistance ?? 0;
+      const inc = ws.incline ?? 0;
+      if (dur > 0) totalDurationSeconds += dur;
+      if (dist > 0) totalDistance += dist;
+      if (spd > maxSpeed) maxSpeed = spd;
+      if (res > maxResistance) maxResistance = res;
+      if (inc > maxIncline) maxIncline = inc;
 
       const isBetterBest =
         est1RM > bestRankScore ||
@@ -144,6 +176,11 @@ export function deriveExerciseProgressFromLocal(
       total_volume: roundTwoDecimals(totalVolume),
       best_set_weight: bestSet?.weight ?? null,
       best_set_reps: bestSet?.reps ?? null,
+      total_duration_seconds: Math.round(totalDurationSeconds),
+      total_distance: roundTwoDecimals(totalDistance),
+      max_speed: roundTwoDecimals(maxSpeed),
+      max_resistance: roundTwoDecimals(maxResistance),
+      max_incline: roundTwoDecimals(maxIncline),
     });
   }
 
@@ -175,6 +212,11 @@ export function computeExercisePersonalBests(
   let allTimeMaxWeight = 0;
   let allTimeBest1RM = 0;
   let allTimeBestSetVolume = 0;
+  let allTimeBestDurationSeconds = 0;
+  let allTimeBestDistance = 0;
+  let allTimeMaxSpeed = 0;
+  let allTimeMaxResistance = 0;
+  let allTimeMaxIncline = 0;
   let totalWorkingSets = 0;
 
   for (const p of points) {
@@ -183,6 +225,21 @@ export function computeExercisePersonalBests(
     }
     if (p.best_est_1rm > allTimeBest1RM) {
       allTimeBest1RM = p.best_est_1rm;
+    }
+    if (p.total_duration_seconds > allTimeBestDurationSeconds) {
+      allTimeBestDurationSeconds = p.total_duration_seconds;
+    }
+    if (p.total_distance > allTimeBestDistance) {
+      allTimeBestDistance = p.total_distance;
+    }
+    if (p.max_speed > allTimeMaxSpeed) {
+      allTimeMaxSpeed = p.max_speed;
+    }
+    if (p.max_resistance > allTimeMaxResistance) {
+      allTimeMaxResistance = p.max_resistance;
+    }
+    if (p.max_incline > allTimeMaxIncline) {
+      allTimeMaxIncline = p.max_incline;
     }
   }
 
@@ -196,6 +253,21 @@ export function computeExercisePersonalBests(
     const est = calculateEpley1RM(w, r);
     if (est > allTimeBest1RM) allTimeBest1RM = est;
     if (vol > allTimeBestSetVolume) allTimeBestSetVolume = vol;
+    if ((ws.duration_seconds ?? 0) > allTimeBestDurationSeconds) {
+      allTimeBestDurationSeconds = ws.duration_seconds ?? 0;
+    }
+    if ((ws.distance ?? 0) > allTimeBestDistance) {
+      allTimeBestDistance = roundTwoDecimals(ws.distance ?? 0);
+    }
+    if ((ws.speed ?? 0) > allTimeMaxSpeed) {
+      allTimeMaxSpeed = roundTwoDecimals(ws.speed ?? 0);
+    }
+    if ((ws.resistance ?? 0) > allTimeMaxResistance) {
+      allTimeMaxResistance = roundTwoDecimals(ws.resistance ?? 0);
+    }
+    if ((ws.incline ?? 0) > allTimeMaxIncline) {
+      allTimeMaxIncline = roundTwoDecimals(ws.incline ?? 0);
+    }
   }
 
   // If set-level rows aren't hydrated locally for historical workouts, approximate set-vol floor from best_set if available
@@ -214,6 +286,11 @@ export function computeExercisePersonalBests(
     allTimeMaxWeight: roundTwoDecimals(allTimeMaxWeight),
     allTimeBest1RM: roundTwoDecimals(allTimeBest1RM),
     allTimeBestSetVolume: roundTwoDecimals(allTimeBestSetVolume),
+    allTimeBestDurationSeconds: Math.round(allTimeBestDurationSeconds),
+    allTimeBestDistance: roundTwoDecimals(allTimeBestDistance),
+    allTimeMaxSpeed: roundTwoDecimals(allTimeMaxSpeed),
+    allTimeMaxResistance: roundTwoDecimals(allTimeMaxResistance),
+    allTimeMaxIncline: roundTwoDecimals(allTimeMaxIncline),
     totalSessions: points.length,
     totalWorkingSets,
   };

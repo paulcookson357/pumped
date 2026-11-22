@@ -201,5 +201,61 @@ describe("workoutImport", () => {
     const remapped = remapBackupData(parsed.backup.data, idMap);
     expect(remapped.routineExercises[0]?.exercise_id).toBe(DB_BENCH_ID);
     expect(remapped.workoutSets[0]?.exercise_id).toBe(DB_BENCH_ID);
+    expect(remapped.workoutSets[0]?.distance).toBeNull();
+  });
+
+  it("imports cardio exercises and cardio set metrics while remaining compatible with legacy sets", () => {
+    const obj = makeValidBackupObject();
+    (obj.data.exercises as Array<Record<string, unknown>>).push({
+      id: "88888888-8888-4888-8888-888888888888",
+      slug: "treadmill-run",
+      name: "Treadmill Run",
+      muscle_group: "cardio",
+      secondary_muscles: ["quads"],
+      equipment: "cardio_machine",
+      tracking_type: "cardio",
+      media_gif_url: null,
+      media_image_start_url: null,
+      media_image_end_url: null,
+      custom_video_url: null,
+      instructions: [],
+      is_custom: false,
+      archived_at: null,
+    });
+    (obj.data.workoutSets as Array<Record<string, unknown>>).push({
+      id: "99999999-9999-4999-8999-999999999991",
+      workout_id: WORKOUT_ID,
+      exercise_id: "88888888-8888-4888-8888-888888888888",
+      exercise_order: 1,
+      superset_group: null,
+      set_number: 1,
+      set_type: "normal",
+      weight: null,
+      reps: null,
+      rpe: 7.5,
+      duration_seconds: 1200,
+      distance: 3.5,
+      speed: 10.5,
+      resistance: 2,
+      incline: 1.5,
+      rest_seconds: 60,
+      is_completed: true,
+      completed_at: "2026-11-22T10:35:00.000Z",
+      is_pr_weight: false,
+      is_pr_1rm: false,
+      is_pr_volume: false,
+      notes: null,
+    });
+
+    const parsed = parseBackupJsonText(JSON.stringify(obj));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      const cardioSet = parsed.backup.data.workoutSets[1];
+      expect(cardioSet?.duration_seconds).toBe(1200);
+      expect(cardioSet?.distance).toBe(3.5);
+      expect(cardioSet?.speed).toBe(10.5);
+      expect(cardioSet?.resistance).toBe(2);
+      expect(cardioSet?.incline).toBe(1.5);
+    }
   });
 });

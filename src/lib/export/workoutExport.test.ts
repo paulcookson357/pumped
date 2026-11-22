@@ -80,6 +80,10 @@ function makeDataset(): ExportDataset {
       reps: 8,
       rpe: null,
       duration_seconds: null,
+      distance: null,
+      speed: null,
+      resistance: null,
+      incline: null,
       rest_seconds: 60,
       is_completed: true,
       completed_at: "2026-11-22T10:10:00.000Z",
@@ -103,6 +107,10 @@ function makeDataset(): ExportDataset {
       reps: 8,
       rpe: 8.5,
       duration_seconds: null,
+      distance: null,
+      speed: null,
+      resistance: null,
+      incline: null,
       rest_seconds: 90,
       is_completed: true,
       completed_at: "2026-11-22T10:15:00.000Z",
@@ -156,11 +164,11 @@ describe("workoutExport", () => {
 
     expect(lines[0]).toBe(WORKOUTS_CSV_HEADERS.join(","));
     expect(csv).toContain(
-      `2026-11-22,${WORKOUT_ID},Push Day,Upper Push A,2400,kg,0,Barbell Bench Press,chest,barbell,,1,warmup,40,8,,,`
+      `2026-11-22,${WORKOUT_ID},Push Day,Upper Push A,2400,kg,0,Barbell Bench Press,chest,barbell,,1,warmup,40,8,,,,,,,`
     );
     expect(csv).toContain(',0,false,false,false,"Line 1\nLine 2","Barbell felt fast, ""paused"" reps"');
     expect(csv).toContain(
-      `2026-11-22,${WORKOUT_ID},Push Day,Upper Push A,2400,kg,0,Barbell Bench Press,chest,barbell,,2,normal,60,8,8.5,,76,480,true,true,false,,"Barbell felt fast, ""paused"" reps"`
+      `2026-11-22,${WORKOUT_ID},Push Day,Upper Push A,2400,kg,0,Barbell Bench Press,chest,barbell,,2,normal,60,8,8.5,,,,,,76,480,true,true,false,,"Barbell felt fast, ""paused"" reps"`
     );
   });
 

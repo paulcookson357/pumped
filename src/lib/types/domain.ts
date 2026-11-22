@@ -9,7 +9,8 @@ export type MuscleGroup =
   | "glutes"
   | "calves"
   | "core"
-  | "forearms";
+  | "forearms"
+  | "cardio";
 
 export type EquipmentType =
   | "barbell"
@@ -19,13 +20,15 @@ export type EquipmentType =
   | "bodyweight"
   | "kettlebell"
   | "smith_machine"
+  | "cardio_machine"
   | "other";
 
 export type TrackingType =
   | "weight_reps"
   | "bodyweight_reps"
   | "weighted_bodyweight"
-  | "duration";
+  | "duration"
+  | "cardio";
 
 export type WorkoutStatus = "in_progress" | "completed" | "discarded";
 
@@ -126,6 +129,10 @@ export interface WorkoutSet {
   reps: number | null;
   rpe: number | null;
   duration_seconds: number | null;
+  distance: number | null;
+  speed: number | null;
+  resistance: number | null;
+  incline: number | null;
   rest_seconds: number | null;
   is_completed: boolean;
   completed_at: string | null;

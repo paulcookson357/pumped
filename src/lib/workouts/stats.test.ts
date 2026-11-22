@@ -26,6 +26,10 @@ function makeSet(overrides: Partial<WorkoutSet> = {}): WorkoutSet {
     reps: overrides.reps !== undefined ? overrides.reps : 10,
     rpe: overrides.rpe ?? null,
     duration_seconds: overrides.duration_seconds ?? null,
+    distance: overrides.distance ?? null,
+    speed: overrides.speed ?? null,
+    resistance: overrides.resistance ?? null,
+    incline: overrides.incline ?? null,
     rest_seconds: overrides.rest_seconds ?? 90,
     is_completed: overrides.is_completed ?? true,
     completed_at: overrides.completed_at ?? NOW,
@@ -172,5 +176,45 @@ describe("workout stats and optimistic PR computation", () => {
         "kg"
       )
     ).toBe("1m 15s");
+    expect(
+      formatPreviousSetLabel(
+        {
+          weight: null,
+          reps: null,
+          duration_seconds: 1230,
+          distance: 3.5,
+          speed: 10.2,
+          resistance: 6,
+          incline: 2,
+        },
+        "cardio",
+        "kg"
+      )
+    ).toBe("20:30 • 3.5 km • 10.2 km/h • Lvl 6 • 2% inc");
+  });
+
+  it("excludes cardio sets without weight/reps from strength volume and PRs", () => {
+    const cardioSets = [
+      makeSet({
+        id: "cardio-1",
+        weight: null,
+        reps: null,
+        duration_seconds: 1200,
+        distance: 4.0,
+        speed: 12.0,
+        resistance: 5,
+        incline: 1.5,
+      }),
+    ];
+
+    const totals = computeWorkoutTotals(cardioSets);
+    expect(totals.totalSets).toBe(1);
+    expect(totals.totalVolume).toBe(0);
+
+    const prs = computeOptimisticPRs(cardioSets, [], []);
+    expect(prs.prCount).toBe(0);
+    expect(prs.setsWithPRs[0]?.is_pr_weight).toBe(false);
+    expect(prs.setsWithPRs[0]?.is_pr_1rm).toBe(false);
+    expect(prs.setsWithPRs[0]?.is_pr_volume).toBe(false);
   });
 });

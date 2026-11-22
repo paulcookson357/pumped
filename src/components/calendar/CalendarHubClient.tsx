@@ -58,7 +58,13 @@ interface CalendarHubClientProps {
   initialSettings: AppSettings | null;
 }
 
-function formatRepPrescription(row: RoutineExercise): string {
+function formatRepPrescription(
+  row: RoutineExercise,
+  exercise?: Exercise
+): string {
+  if (exercise?.tracking_type === "cardio") {
+    return row.target_sets === 1 ? "1 interval" : `${row.target_sets} intervals`;
+  }
   if (row.target_reps_min !== null && row.target_reps_max !== null) {
     if (row.target_reps_min === row.target_reps_max) {
       return `${row.target_sets}×${row.target_reps_min}`;
@@ -593,7 +599,7 @@ export function CalendarHubClient({
                                   </span>
                                 </div>
                                 <span className="tabular-nums shrink-0 text-xs text-zinc-500">
-                                  {formatRepPrescription(row)}
+                                  {formatRepPrescription(row, ex)}
                                   {row.target_rpe !== null
                                     ? ` • RPE ${row.target_rpe}`
                                     : ""}
@@ -723,8 +729,10 @@ export function CalendarHubClient({
                       {workout.name}
                     </p>
                     <p className="tabular-nums text-xs text-zinc-500">
-                      {workout.total_sets} sets • {Math.round(workout.total_volume)}{" "}
-                      {workout.weight_unit}
+                      {workout.total_sets} sets
+                      {workout.total_volume > 0
+                        ? ` • ${Math.round(workout.total_volume)} ${workout.weight_unit}`
+                        : ""}
                     </p>
                   </div>
                 </div>

@@ -24,6 +24,7 @@ const VALID_MUSCLES = new Set([
   "calves",
   "core",
   "forearms",
+  "cardio",
 ]);
 
 const VALID_EQUIPMENT = new Set([
@@ -34,6 +35,7 @@ const VALID_EQUIPMENT = new Set([
   "bodyweight",
   "kettlebell",
   "smith_machine",
+  "cardio_machine",
   "other",
 ]);
 
@@ -42,6 +44,7 @@ const VALID_TRACKING = new Set([
   "bodyweight_reps",
   "weighted_bodyweight",
   "duration",
+  "cardio",
 ]);
 
 function parseCsv(text) {

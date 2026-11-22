@@ -28,6 +28,13 @@ import {
   deriveExerciseProgressFromLocal,
   type ExerciseProgressPoint,
 } from "@/lib/workouts/progress";
+import {
+  formatCardioDecimal,
+  formatCardioDurationDisplay,
+  formatCardioSetSummary,
+  getDistanceUnit,
+  getSpeedUnit,
+} from "@/lib/workouts/cardio";
 import { formatNumberCompact } from "@/lib/workouts/stats";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useSyncStore } from "@/stores/useSyncStore";
@@ -198,6 +205,9 @@ export function ExerciseProgressClient({
   }
 
   const descendingSessions = [...progressPoints].reverse();
+  const isCardio = exercise.tracking_type === "cardio";
+  const distanceUnit = getDistanceUnit(weightUnit);
+  const speedUnit = getSpeedUnit(weightUnit);
 
   return (
     <div>
@@ -253,49 +263,113 @@ export function ExerciseProgressClient({
       </div>
 
       {/* Personal Bests Strip */}
-      <section className="-mx-4 grid grid-cols-2 divide-x divide-y divide-zinc-200 border-b border-zinc-200 bg-white sm:-mx-6 sm:grid-cols-4 sm:divide-y-0">
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Best Est. 1RM
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-emerald-600">
-            {personalBests.allTimeBest1RM > 0
-              ? `${formatNumberCompact(personalBests.allTimeBest1RM)} ${weightUnit}`
-              : "—"}
-          </p>
-        </div>
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Max Weight
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-            {personalBests.allTimeMaxWeight > 0
-              ? `${formatNumberCompact(personalBests.allTimeMaxWeight)} ${weightUnit}`
-              : "—"}
-          </p>
-        </div>
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Best Set Volume
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-            {personalBests.allTimeBestSetVolume > 0
-              ? `${formatNumberCompact(personalBests.allTimeBestSetVolume)} ${weightUnit}`
-              : "—"}
-          </p>
-        </div>
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Sessions
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-            {personalBests.totalSessions}
-          </p>
-        </div>
-      </section>
+      {isCardio ? (
+        <section className="-mx-4 grid grid-cols-2 divide-x divide-y divide-zinc-200 border-b border-zinc-200 bg-white sm:-mx-6 sm:grid-cols-4 sm:divide-y-0">
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Best Time
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-emerald-600">
+              {personalBests.allTimeBestDurationSeconds > 0
+                ? formatCardioDurationDisplay(
+                    personalBests.allTimeBestDurationSeconds
+                  )
+                : "—"}
+            </p>
+          </div>
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Best Distance
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+              {personalBests.allTimeBestDistance > 0
+                ? `${formatCardioDecimal(personalBests.allTimeBestDistance)} ${distanceUnit}`
+                : "—"}
+            </p>
+          </div>
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Top Speed
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+              {personalBests.allTimeMaxSpeed > 0
+                ? `${formatCardioDecimal(personalBests.allTimeMaxSpeed)} ${speedUnit}`
+                : "—"}
+            </p>
+          </div>
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Sessions
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+              {personalBests.totalSessions}
+            </p>
+            {(personalBests.allTimeMaxResistance > 0 ||
+              personalBests.allTimeMaxIncline > 0) && (
+              <p className="tabular-nums truncate text-[11px] text-zinc-500">
+                {personalBests.allTimeMaxResistance > 0
+                  ? `Max Lvl ${formatCardioDecimal(personalBests.allTimeMaxResistance)}`
+                  : ""}
+                {personalBests.allTimeMaxResistance > 0 &&
+                personalBests.allTimeMaxIncline > 0
+                  ? " • "
+                  : ""}
+                {personalBests.allTimeMaxIncline > 0
+                  ? `${formatCardioDecimal(personalBests.allTimeMaxIncline)}% inc`
+                  : ""}
+              </p>
+            )}
+          </div>
+        </section>
+      ) : (
+        <section className="-mx-4 grid grid-cols-2 divide-x divide-y divide-zinc-200 border-b border-zinc-200 bg-white sm:-mx-6 sm:grid-cols-4 sm:divide-y-0">
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Best Est. 1RM
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-emerald-600">
+              {personalBests.allTimeBest1RM > 0
+                ? `${formatNumberCompact(personalBests.allTimeBest1RM)} ${weightUnit}`
+                : "—"}
+            </p>
+          </div>
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Max Weight
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+              {personalBests.allTimeMaxWeight > 0
+                ? `${formatNumberCompact(personalBests.allTimeMaxWeight)} ${weightUnit}`
+                : "—"}
+            </p>
+          </div>
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Best Set Volume
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+              {personalBests.allTimeBestSetVolume > 0
+                ? `${formatNumberCompact(personalBests.allTimeBestSetVolume)} ${weightUnit}`
+                : "—"}
+            </p>
+          </div>
+          <div className="px-4 py-3 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Sessions
+            </p>
+            <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+              {personalBests.totalSessions}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Progress Chart */}
-      <ExerciseProgressChart points={progressPoints} weightUnit={weightUnit} />
+      <ExerciseProgressChart
+        points={progressPoints}
+        weightUnit={weightUnit}
+        trackingType={exercise.tracking_type}
+      />
 
       {/* Session History */}
       <section className="-mx-4 border-b border-zinc-200 sm:-mx-6">
@@ -329,16 +403,37 @@ export function ExerciseProgressClient({
                       </div>
 
                       <div className="flex shrink-0 items-center gap-1.5 text-right">
-                        <div className="tabular-nums text-xs">
-                          <p className="font-bold text-emerald-700">
-                            1RM {formatNumberCompact(point.best_est_1rm)}{" "}
-                            {weightUnit}
-                          </p>
-                          <p className="text-zinc-500">
-                            Vol {formatNumberCompact(point.total_volume)}{" "}
-                            {weightUnit}
-                          </p>
-                        </div>
+                        {isCardio ? (
+                          <div className="tabular-nums text-xs">
+                            <p className="font-bold text-emerald-700">
+                              {point.total_duration_seconds > 0
+                                ? formatCardioDurationDisplay(
+                                    point.total_duration_seconds
+                                  )
+                                : "—"}
+                            </p>
+                            <p className="text-zinc-500">
+                              {point.total_distance > 0
+                                ? `${formatCardioDecimal(point.total_distance)} ${distanceUnit}`
+                                : point.max_speed > 0
+                                  ? `${formatCardioDecimal(point.max_speed)} ${speedUnit}`
+                                  : point.max_resistance > 0
+                                    ? `Lvl ${formatCardioDecimal(point.max_resistance)}`
+                                    : "Logged"}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="tabular-nums text-xs">
+                            <p className="font-bold text-emerald-700">
+                              1RM {formatNumberCompact(point.best_est_1rm)}{" "}
+                              {weightUnit}
+                            </p>
+                            <p className="text-zinc-500">
+                              Vol {formatNumberCompact(point.total_volume)}{" "}
+                              {weightUnit}
+                            </p>
+                          </div>
+                        )}
                         <ChevronRight
                           className="h-4 w-4 text-zinc-400"
                           aria-hidden="true"
@@ -358,13 +453,16 @@ export function ExerciseProgressClient({
                             }`}
                           >
                             {ws.set_type === "warmup" ? "W: " : ""}
-                            {ws.weight !== null
-                              ? `${formatNumberCompact(ws.weight)} × ${ws.reps ?? 0}`
-                              : `${ws.reps ?? 0} reps`}
+                            {isCardio
+                              ? formatCardioSetSummary(ws, weightUnit)
+                              : ws.weight !== null
+                                ? `${formatNumberCompact(ws.weight)} × ${ws.reps ?? 0}`
+                                : `${ws.reps ?? 0} reps`}
                           </span>
                         ))}
                       </div>
                     ) : (
+                      !isCardio &&
                       point.best_set_weight !== null &&
                       point.best_set_reps !== null && (
                         <p className="tabular-nums mt-1.5 text-xs text-zinc-600">

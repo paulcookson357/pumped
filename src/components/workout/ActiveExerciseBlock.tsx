@@ -74,6 +74,7 @@ export function ActiveExerciseBlock({
   const accentColor = getSupersetColor(draft.supersetGroup);
   const isInSuperset = draft.supersetGroup !== null;
   const canLinkNext = index < totalExercises - 1;
+  const isCardio = trackingType === "cardio";
   const hasWeightCol =
     trackingType === "weight_reps" || trackingType === "weighted_bodyweight";
 
@@ -321,7 +322,9 @@ export function ActiveExerciseBlock({
 
         {/* Column headers */}
         <div className="flex items-center gap-1.5 border-b border-zinc-100 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 sm:gap-2 sm:px-6">
-          <span className="w-8 shrink-0 text-center">Set</span>
+          <span className="w-8 shrink-0 text-center">
+            {isCardio ? "Int" : "Set"}
+          </span>
           <span className="min-w-0 flex-1 pl-1.5">Previous</span>
           {hasWeightCol && (
             <span className="w-[66px] shrink-0 text-center sm:w-20">
@@ -332,12 +335,14 @@ export function ActiveExerciseBlock({
           )}
           <span
             className={`shrink-0 text-center ${
-              trackingType === "duration"
-                ? "w-[72px] sm:w-20"
-                : "w-[58px] sm:w-16"
+              isCardio
+                ? "w-[78px] sm:w-24"
+                : trackingType === "duration"
+                  ? "w-[72px] sm:w-20"
+                  : "w-[58px] sm:w-16"
             }`}
           >
-            {trackingType === "duration" ? "Secs" : "Reps"}
+            {isCardio ? "Time" : trackingType === "duration" ? "Secs" : "Reps"}
           </span>
           {showRpe && <span className="w-11 shrink-0 text-center">RPE</span>}
           <span className="w-10 shrink-0 text-center">✓</span>
@@ -351,6 +356,10 @@ export function ActiveExerciseBlock({
               weight: prevSet?.weight ?? null,
               reps: prevSet?.reps ?? null,
               durationSeconds: prevSet?.duration_seconds ?? null,
+              distance: prevSet?.distance ?? null,
+              speed: prevSet?.speed ?? null,
+              resistance: prevSet?.resistance ?? null,
+              incline: prevSet?.incline ?? null,
             };
 
             return (
@@ -389,7 +398,7 @@ export function ActiveExerciseBlock({
             className="flex min-h-[38px] w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-200 text-xs font-semibold text-zinc-700 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Add Set</span>
+            <span>{isCardio ? "Add Interval" : "Add Set"}</span>
           </button>
         </div>
       </div>

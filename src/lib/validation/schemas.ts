@@ -20,6 +20,7 @@ export const muscleGroupSchema = z.enum([
   "calves",
   "core",
   "forearms",
+  "cardio",
 ]);
 
 export const equipmentTypeSchema = z.enum([
@@ -30,6 +31,7 @@ export const equipmentTypeSchema = z.enum([
   "bodyweight",
   "kettlebell",
   "smith_machine",
+  "cardio_machine",
   "other",
 ]);
 
@@ -38,6 +40,7 @@ export const trackingTypeSchema = z.enum([
   "bodyweight_reps",
   "weighted_bodyweight",
   "duration",
+  "cardio",
 ]);
 
 function isSafeMediaPathOrHttpsUrl(value: string): boolean {
@@ -216,6 +219,10 @@ export const workoutSetInputSchema = z.object({
     .nullable()
     .default(null),
   duration_seconds: z.number().int().min(0).max(86400).nullable().default(null),
+  distance: z.number().min(0).max(10000).nullable().default(null),
+  speed: z.number().min(0).max(500).nullable().default(null),
+  resistance: z.number().min(0).max(1000).nullable().default(null),
+  incline: z.number().min(-15).max(50).nullable().default(null),
   rest_seconds: z.number().int().min(0).max(900).nullable().default(null),
   is_completed: z.boolean().default(true),
   completed_at: z.string().datetime().nullable().default(null),

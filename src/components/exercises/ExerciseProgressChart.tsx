@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, TrendingUp } from "lucide-react";
 import { formatDayHeader } from "@/lib/dates/localDate";
-import type { WeightUnit } from "@/lib/types/domain";
+import type { TrackingType, WeightUnit } from "@/lib/types/domain";
+import {
+  formatCardioDecimal,
+  formatCardioDurationCompact,
+  formatCardioDurationDisplay,
+  getDistanceUnit,
+  getSpeedUnit,
+} from "@/lib/workouts/cardio";
 import {
   filterProgressByTimeRange,
   type ExerciseProgressPoint,
@@ -16,6 +23,7 @@ import { formatNumberCompact } from "@/lib/workouts/stats";
 interface ExerciseProgressChartProps {
   points: ExerciseProgressPoint[];
   weightUnit: WeightUnit;
+  trackingType?: TrackingType;
 }
 
 const TIME_RANGES: ReadonlyArray<{ id: ProgressTimeRange; label: string }> = [
@@ -26,10 +34,16 @@ const TIME_RANGES: ReadonlyArray<{ id: ProgressTimeRange; label: string }> = [
   { id: "ALL", label: "All" },
 ];
 
-const METRICS: ReadonlyArray<{ id: ProgressMetric; label: string }> = [
+const STRENGTH_METRICS: ReadonlyArray<{ id: ProgressMetric; label: string }> = [
   { id: "est_1rm", label: "Est. 1RM" },
   { id: "max_weight", label: "Max Weight" },
   { id: "total_volume", label: "Volume" },
+];
+
+const CARDIO_METRICS: ReadonlyArray<{ id: ProgressMetric; label: string }> = [
+  { id: "duration_minutes", label: "Time (min)" },
+  { id: "total_distance", label: "Distance" },
+  { id: "max_speed", label: "Top Speed" },
 ];
 
 const SVG_WIDTH = 640;
@@ -50,16 +64,34 @@ function getMetricValue(
       return point.max_weight;
     case "total_volume":
       return point.total_volume;
+    case "duration_minutes":
+      return Math.round(((point.total_duration_seconds ?? 0) / 60) * 100) / 100;
+    case "total_distance":
+      return point.total_distance ?? 0;
+    case "max_speed":
+      return point.max_speed ?? 0;
   }
 }
 
 export function ExerciseProgressChart({
   points,
   weightUnit,
+  trackingType = "weight_reps",
 }: ExerciseProgressChartProps) {
+  const isCardio = trackingType === "cardio";
+  const metricsList = isCardio ? CARDIO_METRICS : STRENGTH_METRICS;
+  const distanceUnit = getDistanceUnit(weightUnit);
+  const speedUnit = getSpeedUnit(weightUnit);
+
   const [range, setRange] = useState<ProgressTimeRange>("ALL");
-  const [metric, setMetric] = useState<ProgressMetric>("est_1rm");
+  const [metric, setMetric] = useState<ProgressMetric>(
+    isCardio ? "duration_minutes" : "est_1rm"
+  );
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+
+  const activeMetric: ProgressMetric = metricsList.some((m) => m.id === metric)
+    ? metric
+    : (metricsList[0]?.id ?? "est_1rm");
 
   const filtered = useMemo(
     () => filterProgressByTimeRange(points, range),
@@ -68,7 +100,7 @@ export function ExerciseProgressChart({
 
   useEffect(() => {
     setSelectedIndex(Math.max(0, filtered.length - 1));
-  }, [filtered.length, range, metric]);
+  }, [filtered.length, range, activeMetric]);
 
   const activeIndex =
     filtered.length === 0
@@ -81,7 +113,7 @@ export function ExerciseProgressChart({
       return null;
     }
 
-    const values = filtered.map((p) => getMetricValue(p, metric));
+    const values = filtered.map((p) => getMetricValue(p, activeMetric));
     const rawMin = Math.min(...values);
     const rawMax = Math.max(...values);
 
@@ -89,7 +121,7 @@ export function ExerciseProgressChart({
     let yMax: number;
 
     if (rawMax === rawMin) {
-      const pad = Math.max(5, Math.round(rawMax * 0.15));
+      const pad = rawMax > 15 ? Math.max(5, Math.round(rawMax * 0.15)) : Math.max(1, Math.round(rawMax * 0.25 * 10) / 10);
       yMin = Math.max(0, rawMin - pad);
       yMax = rawMax + pad;
     } else {
@@ -106,7 +138,7 @@ export function ExerciseProgressChart({
     const plotH = SVG_HEIGHT - PAD_TOP - PAD_BOTTOM;
 
     const coords = filtered.map((p, idx) => {
-      const val = getMetricValue(p, metric);
+      const val = getMetricValue(p, activeMetric);
       const x =
         filtered.length === 1
           ? PAD_LEFT + plotW / 2
@@ -140,11 +172,13 @@ export function ExerciseProgressChart({
       linePoints,
       areaPath,
       baselineY,
+      rawMax,
     };
-  }, [filtered, metric]);
+  }, [filtered, activeMetric]);
 
   const metricLabel =
-    METRICS.find((m) => m.id === metric)?.label ?? "Est. 1RM";
+    metricsList.find((m) => m.id === activeMetric)?.label ??
+    (isCardio ? "Time (min)" : "Est. 1RM");
 
   return (
     <section className="-mx-4 border-b border-zinc-200 bg-white sm:-mx-6">
@@ -152,13 +186,13 @@ export function ExerciseProgressChart({
         {/* Metric + Time Range controls */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Progress metric">
-            {METRICS.map((m) => (
+            {metricsList.map((m) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => setMetric(m.id)}
                 className={`min-h-[36px] rounded-full border px-3 text-xs font-semibold transition-colors ${
-                  metric === m.id
+                  activeMetric === m.id
                     ? "border-emerald-600 bg-emerald-600 text-white"
                     : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
                 }`}
@@ -194,17 +228,49 @@ export function ExerciseProgressChart({
                 {formatDayHeader(selectedPoint.workout_date)} • {metricLabel}
               </p>
               <div className="tabular-nums mt-0.5 flex flex-wrap items-baseline gap-2">
-                <span className="text-xl font-bold text-zinc-950">
-                  {formatNumberCompact(getMetricValue(selectedPoint, metric))}{" "}
-                  {weightUnit}
-                </span>
-                {selectedPoint.best_set_weight !== null &&
-                  selectedPoint.best_set_reps !== null && (
-                    <span className="text-xs font-medium text-zinc-500">
-                      Best set: {formatNumberCompact(selectedPoint.best_set_weight)}{" "}
-                      {weightUnit} × {selectedPoint.best_set_reps}
+                {isCardio ? (
+                  <>
+                    <span className="text-xl font-bold text-zinc-950">
+                      {activeMetric === "duration_minutes"
+                        ? formatCardioDurationDisplay(
+                            selectedPoint.total_duration_seconds
+                          )
+                        : activeMetric === "total_distance"
+                          ? `${formatCardioDecimal(selectedPoint.total_distance)} ${distanceUnit}`
+                          : `${formatCardioDecimal(selectedPoint.max_speed)} ${speedUnit}`}
                     </span>
-                  )}
+                    <span className="text-xs font-medium text-zinc-500">
+                      {selectedPoint.total_duration_seconds > 0
+                        ? formatCardioDurationCompact(
+                            selectedPoint.total_duration_seconds
+                          )
+                        : ""}
+                      {selectedPoint.total_distance > 0
+                        ? ` • ${formatCardioDecimal(selectedPoint.total_distance)} ${distanceUnit}`
+                        : ""}
+                      {selectedPoint.max_speed > 0
+                        ? ` • ${formatCardioDecimal(selectedPoint.max_speed)} ${speedUnit}`
+                        : ""}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xl font-bold text-zinc-950">
+                      {formatNumberCompact(
+                        getMetricValue(selectedPoint, activeMetric)
+                      )}{" "}
+                      {weightUnit}
+                    </span>
+                    {selectedPoint.best_set_weight !== null &&
+                      selectedPoint.best_set_reps !== null && (
+                        <span className="text-xs font-medium text-zinc-500">
+                          Best set:{" "}
+                          {formatNumberCompact(selectedPoint.best_set_weight)}{" "}
+                          {weightUnit} × {selectedPoint.best_set_reps}
+                        </span>
+                      )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -226,7 +292,9 @@ export function ExerciseProgressChart({
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               {points.length === 0
-                ? "Complete working sets for this exercise to chart strength progress."
+                ? isCardio
+                  ? "Complete cardio intervals for this exercise to chart progress."
+                  : "Complete working sets for this exercise to chart strength progress."
                 : "Try selecting All to view earlier logged sessions."}
             </p>
           </div>
@@ -274,7 +342,9 @@ export function ExerciseProgressChart({
                     fill="#71717A"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
-                    {formatNumberCompact(Math.round(t.tickVal))}
+                    {chartGeometry.rawMax <= 15
+                      ? formatNumberCompact(Math.round(t.tickVal * 10) / 10)
+                      : formatNumberCompact(Math.round(t.tickVal))}
                   </text>
                 </g>
               ))}

@@ -5,9 +5,18 @@ import { useRouter } from "next/navigation";
 import { Award, CheckCircle2, Trophy, X } from "lucide-react";
 import { formatDayHeader } from "@/lib/dates/localDate";
 import {
+  computeCardioTotals,
+  formatCardioDecimal,
+  formatCardioDurationCompact,
+  formatCardioSetSummary,
+  getDistanceUnit,
+  hasAnyCardioMetrics,
+} from "@/lib/workouts/cardio";
+import {
   formatElapsedDuration,
   formatNumberCompact,
 } from "@/lib/workouts/stats";
+import { useAppDataStore } from "@/stores/useAppDataStore";
 import type { WorkoutFinishSummary } from "@/stores/useActiveWorkoutStore";
 
 interface WorkoutFinishModalProps {
@@ -30,15 +39,29 @@ export function WorkoutFinishModal({
     return () => window.removeEventListener("keydown", handleKey);
   }, [summary, onDismiss]);
 
+  const exercises = useAppDataStore((state) => state.exercises);
+
   if (!summary) {
     return null;
   }
 
   const { workout, sets, prHighlights, exerciseNames } = summary;
+  const exerciseById = new Map(exercises.map((ex) => [ex.id, ex]));
+  const cardioTotals = computeCardioTotals(
+    sets.filter(
+      (s) =>
+        exerciseById.get(s.exercise_id)?.tracking_type === "cardio" ||
+        hasAnyCardioMetrics(s)
+    )
+  );
+  const showCardioHeadlineStat =
+    workout.total_volume === 0 &&
+    (cardioTotals.totalDistance > 0 || cardioTotals.totalCardioSeconds > 0);
 
   // Group completed sets sequentially by exercise_order for summary recap
   const groupedExercises: Array<{
     key: string;
+    exerciseId: string;
     exerciseName: string;
     sets: typeof sets;
   }> = [];
@@ -51,6 +74,7 @@ export function WorkoutFinishModal({
     } else {
       groupedExercises.push({
         key,
+        exerciseId: ws.exercise_id,
         exerciseName: exerciseNames[ws.exercise_id] ?? "Exercise",
         sets: [ws],
       });
@@ -113,10 +137,18 @@ export function WorkoutFinishModal({
           </div>
           <div className="px-4 py-3.5 sm:px-6">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-              Volume
+              {showCardioHeadlineStat
+                ? cardioTotals.totalDistance > 0
+                  ? "Distance"
+                  : "Cardio Time"
+                : "Volume"}
             </p>
             <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-              {formatNumberCompact(workout.total_volume)} {workout.weight_unit}
+              {showCardioHeadlineStat
+                ? cardioTotals.totalDistance > 0
+                  ? `${formatCardioDecimal(cardioTotals.totalDistance)} ${getDistanceUnit(workout.weight_unit)}`
+                  : formatCardioDurationCompact(cardioTotals.totalCardioSeconds)
+                : `${formatNumberCompact(workout.total_volume)} ${workout.weight_unit}`}
             </p>
           </div>
           <div className="px-4 py-3.5 sm:px-6">
@@ -191,34 +223,49 @@ export function WorkoutFinishModal({
         {/* Exercise Breakdown */}
         {groupedExercises.length > 0 && (
           <section className="divide-y divide-zinc-200 border-b border-zinc-200">
-            {groupedExercises.map((group) => (
-              <div key={group.key} className="px-4 py-3.5 sm:px-6">
-                <h3 className="text-sm font-bold text-zinc-950">
-                  {group.exerciseName}
-                </h3>
-                <ul className="mt-1.5 space-y-1">
-                  {group.sets.map((s) => (
-                    <li
-                      key={s.id}
-                      className="tabular-nums flex items-center justify-between text-xs text-zinc-600"
-                    >
-                      <span>
-                        Set {s.set_number}
-                        {s.set_type !== "normal" ? ` (${s.set_type})` : ""}
-                      </span>
-                      <span className="font-medium text-zinc-900">
-                        {s.duration_seconds !== null && s.duration_seconds > 0
-                          ? `${s.duration_seconds}s`
-                          : s.weight !== null && s.weight > 0
-                            ? `${formatNumberCompact(s.weight)} ${workout.weight_unit} × ${s.reps ?? 0}`
-                            : `${s.reps ?? 0} reps`}
-                        {s.rpe !== null ? ` • RPE ${s.rpe}` : ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {groupedExercises.map((group) => {
+              const isCardioGroup =
+                exerciseById.get(group.exerciseId)?.tracking_type === "cardio";
+              return (
+                <div key={group.key} className="px-4 py-3.5 sm:px-6">
+                  <h3 className="text-sm font-bold text-zinc-950">
+                    {group.exerciseName}
+                  </h3>
+                  <ul className="mt-1.5 space-y-1">
+                    {group.sets.map((s) => {
+                      const setIsCardio =
+                        isCardioGroup ||
+                        s.distance !== null ||
+                        s.speed !== null ||
+                        s.resistance !== null ||
+                        s.incline !== null;
+                      return (
+                        <li
+                          key={s.id}
+                          className="tabular-nums flex items-center justify-between gap-2 text-xs text-zinc-600"
+                        >
+                          <span className="shrink-0">
+                            {setIsCardio ? "Interval" : "Set"} {s.set_number}
+                            {s.set_type !== "normal" ? ` (${s.set_type})` : ""}
+                          </span>
+                          <span className="truncate font-medium text-zinc-900">
+                            {setIsCardio
+                              ? formatCardioSetSummary(s, workout.weight_unit)
+                              : s.duration_seconds !== null &&
+                                  s.duration_seconds > 0
+                                ? `${s.duration_seconds}s`
+                                : s.weight !== null && s.weight > 0
+                                  ? `${formatNumberCompact(s.weight)} ${workout.weight_unit} × ${s.reps ?? 0}`
+                                  : `${s.reps ?? 0} reps`}
+                            {s.rpe !== null ? ` • RPE ${s.rpe}` : ""}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
           </section>
         )}
       </div>

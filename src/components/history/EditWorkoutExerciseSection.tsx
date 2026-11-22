@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { ExerciseVisual } from "@/components/exercises/ExerciseVisual";
 import { getSupersetColor } from "@/lib/routines/colors";
 import type { Exercise, SetType, WeightUnit } from "@/lib/types/domain";
+import { getDistanceUnit, getSpeedUnit } from "@/lib/workouts/cardio";
 
 export interface EditableSetDraft {
   id: string;
@@ -13,6 +14,10 @@ export interface EditableSetDraft {
   reps: string;
   rpe: number | null;
   durationSeconds: string;
+  distance: string;
+  speed: string;
+  resistance: string;
+  incline: string;
   restSeconds: number | null;
   notes: string | null;
   completedAt: string | null;
@@ -59,9 +64,12 @@ export function EditWorkoutExerciseSection({
   const [rpeOpenSetId, setRpeOpenSetId] = useState<string | null>(null);
 
   const trackingType = exercise?.tracking_type ?? "weight_reps";
+  const isCardio = trackingType === "cardio";
   const hasWeightCol =
     trackingType === "weight_reps" || trackingType === "weighted_bodyweight";
   const isDuration = trackingType === "duration";
+  const distanceUnit = getDistanceUnit(weightUnit);
+  const speedUnit = getSpeedUnit(weightUnit);
   const accentColor = getSupersetColor(draft.supersetGroup);
 
   function cycleSetType(current: SetType): SetType {
@@ -118,12 +126,12 @@ export function EditWorkoutExerciseSection({
 
         {/* Column labels */}
         <div className="flex items-center gap-1.5 border-t border-zinc-100 bg-zinc-50/70 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 sm:gap-2 sm:px-6">
-          <span className="w-9 text-center">Set</span>
+          <span className="w-9 text-center">{isCardio ? "Int" : "Set"}</span>
           {hasWeightCol && (
             <span className="flex-1 text-center">{weightUnit}</span>
           )}
           <span className="flex-1 text-center">
-            {isDuration ? "Secs" : "Reps"}
+            {isCardio ? "Time (mm:ss)" : isDuration ? "Secs" : "Reps"}
           </span>
           <span className="w-12 text-center">RPE</span>
           <span className="w-10" aria-hidden="true" />
@@ -166,7 +174,19 @@ export function EditWorkoutExerciseSection({
                     />
                   )}
 
-                  {isDuration ? (
+                  {isCardio ? (
+                    <input
+                      id={`edit-set-${ws.id}-duration`}
+                      type="text"
+                      value={ws.durationSeconds}
+                      onChange={(e) =>
+                        onUpdateSet(ws.id, { durationSeconds: e.target.value })
+                      }
+                      aria-label={`Interval ${setNum} time (mm:ss or minutes)`}
+                      placeholder="20:00"
+                      className="tabular-nums min-h-[44px] min-w-0 flex-1 rounded-lg border border-zinc-200 bg-zinc-50/70 px-2 text-center text-base font-semibold text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                    />
+                  ) : isDuration ? (
                     <input
                       id={`edit-set-${ws.id}-duration`}
                       type="text"
@@ -221,6 +241,91 @@ export function EditWorkoutExerciseSection({
                   </button>
                 </div>
 
+                {isCardio && (
+                  <div className="grid grid-cols-2 gap-2 px-4 pt-0.5 pb-3 sm:grid-cols-4 sm:px-6">
+                    <div>
+                      <label
+                        htmlFor={`edit-set-${ws.id}-distance`}
+                        className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+                      >
+                        Dist ({distanceUnit})
+                      </label>
+                      <input
+                        id={`edit-set-${ws.id}-distance`}
+                        type="text"
+                        inputMode="decimal"
+                        value={ws.distance}
+                        onChange={(e) =>
+                          onUpdateSet(ws.id, { distance: e.target.value })
+                        }
+                        aria-label={`Interval ${setNum} distance in ${distanceUnit}`}
+                        placeholder="0.0"
+                        className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-zinc-50/70 px-2 text-center text-base font-semibold text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`edit-set-${ws.id}-speed`}
+                        className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+                      >
+                        Speed ({speedUnit})
+                      </label>
+                      <input
+                        id={`edit-set-${ws.id}-speed`}
+                        type="text"
+                        inputMode="decimal"
+                        value={ws.speed}
+                        onChange={(e) =>
+                          onUpdateSet(ws.id, { speed: e.target.value })
+                        }
+                        aria-label={`Interval ${setNum} speed in ${speedUnit}`}
+                        placeholder="0.0"
+                        className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-zinc-50/70 px-2 text-center text-base font-semibold text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`edit-set-${ws.id}-resistance`}
+                        className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+                      >
+                        Resist (Lvl)
+                      </label>
+                      <input
+                        id={`edit-set-${ws.id}-resistance`}
+                        type="text"
+                        inputMode="decimal"
+                        value={ws.resistance}
+                        onChange={(e) =>
+                          onUpdateSet(ws.id, { resistance: e.target.value })
+                        }
+                        aria-label={`Interval ${setNum} resistance level`}
+                        placeholder="—"
+                        className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-zinc-50/70 px-2 text-center text-base font-semibold text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`edit-set-${ws.id}-incline`}
+                        className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+                      >
+                        Incline (%)
+                      </label>
+                      <input
+                        id={`edit-set-${ws.id}-incline`}
+                        type="text"
+                        inputMode="decimal"
+                        value={ws.incline}
+                        onChange={(e) =>
+                          onUpdateSet(ws.id, { incline: e.target.value })
+                        }
+                        aria-label={`Interval ${setNum} incline percentage`}
+                        placeholder="—"
+                        className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-zinc-50/70 px-2 text-center text-base font-semibold text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {rpeOpen && (
                   <div className="flex flex-wrap items-center gap-1 border-t border-zinc-100 bg-zinc-50/70 px-4 py-2 sm:px-6">
                     {RPE_OPTIONS.map((val) => (
@@ -266,7 +371,7 @@ export function EditWorkoutExerciseSection({
             className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Add Set</span>
+            <span>{isCardio ? "Add Interval" : "Add Set"}</span>
           </button>
         </div>
       </div>

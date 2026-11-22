@@ -15,6 +15,10 @@ interface PreviousRpcRow {
   reps: number | null;
   rpe: number | string | null;
   duration_seconds: number | null;
+  distance: number | string | null;
+  speed: number | string | null;
+  resistance: number | string | null;
+  incline: number | string | null;
   completed_at: string | null;
 }
 
@@ -79,6 +83,22 @@ export async function POST(request: NextRequest) {
         rpe: row.rpe !== null ? Number(row.rpe) : null,
         duration_seconds:
           row.duration_seconds !== null ? Number(row.duration_seconds) : null,
+        distance:
+          row.distance !== null && row.distance !== undefined
+            ? Number(row.distance)
+            : null,
+        speed:
+          row.speed !== null && row.speed !== undefined
+            ? Number(row.speed)
+            : null,
+        resistance:
+          row.resistance !== null && row.resistance !== undefined
+            ? Number(row.resistance)
+            : null,
+        incline:
+          row.incline !== null && row.incline !== undefined
+            ? Number(row.incline)
+            : null,
       });
     }
 

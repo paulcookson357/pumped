@@ -27,6 +27,13 @@ import {
   groupWorkoutSetsByExercise,
 } from "@/lib/workouts/progress";
 import {
+  computeCardioTotals,
+  formatCardioDecimal,
+  formatCardioDurationCompact,
+  getDistanceUnit,
+  hasAnyCardioMetrics,
+} from "@/lib/workouts/cardio";
+import {
   formatElapsedDuration,
   formatNumberCompact,
 } from "@/lib/workouts/stats";
@@ -396,6 +403,17 @@ export function HistoryClient({
                     : undefined;
                   const sets = setsByWorkoutId.get(workout.id) ?? [];
                   const exerciseGroups = groupWorkoutSetsByExercise(sets);
+                  const cardioTotals = computeCardioTotals(
+                    sets.filter(
+                      (s) =>
+                        exerciseMap.get(s.exercise_id)
+                          ?.tracking_type === "cardio" || hasAnyCardioMetrics(s)
+                    )
+                  );
+                  const hasCardioHeadline =
+                    workout.total_volume === 0 &&
+                    (cardioTotals.totalDistance > 0 ||
+                      cardioTotals.totalCardioSeconds > 0);
 
                   return (
                     <li key={workout.id}>
@@ -462,8 +480,13 @@ export function HistoryClient({
                                 aria-hidden="true"
                               />
                               <span>
-                                {formatNumberCompact(workout.total_volume)}{" "}
-                                {workout.weight_unit}
+                                {hasCardioHeadline
+                                  ? cardioTotals.totalDistance > 0
+                                    ? `${formatCardioDecimal(cardioTotals.totalDistance)} ${getDistanceUnit(workout.weight_unit)}`
+                                    : formatCardioDurationCompact(
+                                        cardioTotals.totalCardioSeconds
+                                      )
+                                  : `${formatNumberCompact(workout.total_volume)} ${workout.weight_unit}`}
                               </span>
                             </span>
                             <span>

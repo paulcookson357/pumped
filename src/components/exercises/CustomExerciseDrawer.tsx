@@ -228,7 +228,21 @@ export function CustomExerciseDrawer({
               <select
                 id="custom-ex-muscle"
                 value={muscleGroup}
-                onChange={(e) => setMuscleGroup(e.target.value as MuscleGroup)}
+                onChange={(e) => {
+                  const nextMuscle = e.target.value as MuscleGroup;
+                  setMuscleGroup(nextMuscle);
+                  if (!editingExercise) {
+                    if (nextMuscle === "cardio") {
+                      setEquipment("cardio_machine");
+                      setTrackingType("cardio");
+                    } else if (trackingType === "cardio") {
+                      setTrackingType("weight_reps");
+                      if (equipment === "cardio_machine") {
+                        setEquipment("dumbbell");
+                      }
+                    }
+                  }
+                }}
                 className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 focus:border-emerald-600 focus:bg-white focus:outline-none"
               >
                 {MUSCLE_GROUPS.map((m) => (

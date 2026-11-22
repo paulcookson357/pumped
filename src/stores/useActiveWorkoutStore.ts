@@ -24,6 +24,11 @@ import type {
   WorkoutSet,
 } from "@/lib/types/domain";
 import {
+  formatCardioDecimal,
+  formatCardioDurationInput,
+  parseCardioTimeInput,
+} from "@/lib/workouts/cardio";
+import {
   computeOptimisticPRs,
   computeWorkoutTotals,
   derivePreviousPerformanceFromLocal,
@@ -41,6 +46,10 @@ export interface ActiveSetDraft {
   reps: string;
   rpe: number | null;
   durationSeconds: string;
+  distance: string;
+  speed: string;
+  resistance: string;
+  incline: string;
   isCompleted: boolean;
   completedAt: string | null;
 }
@@ -90,6 +99,10 @@ interface PreviousFallbackValues {
   weight: number | null;
   reps: number | null;
   durationSeconds: number | null;
+  distance?: number | null;
+  speed?: number | null;
+  resistance?: number | null;
+  incline?: number | null;
 }
 
 interface ActiveWorkoutState {
@@ -124,7 +137,15 @@ interface ActiveWorkoutState {
     patch: Partial<
       Pick<
         ActiveSetDraft,
-        "setType" | "weight" | "reps" | "rpe" | "durationSeconds"
+        | "setType"
+        | "weight"
+        | "reps"
+        | "rpe"
+        | "durationSeconds"
+        | "distance"
+        | "speed"
+        | "resistance"
+        | "incline"
       >
     >
   ) => void;
@@ -155,6 +176,10 @@ function createEmptySet(setType: SetType = "normal"): ActiveSetDraft {
     reps: "",
     rpe: null,
     durationSeconds: "",
+    distance: "",
+    speed: "",
+    resistance: "",
+    incline: "",
     isCompleted: false,
     completedAt: null,
   };
@@ -226,6 +251,14 @@ function parseOptionalFloat(value: string): number | null {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 }
 
+function parseOptionalIncline(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || num < -15 || num > 50) return null;
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+}
+
 function parseOptionalInt(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -273,12 +306,25 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
         if (raw) {
           const parsed = JSON.parse(raw) as ActiveWorkoutDraft;
           if (parsed && typeof parsed.id === "string" && Array.isArray(parsed.exercises)) {
+            const normalizedDraft: ActiveWorkoutDraft = {
+              ...parsed,
+              exercises: parsed.exercises.map((ex) => ({
+                ...ex,
+                sets: (ex.sets ?? []).map((s) => ({
+                  ...s,
+                  distance: s.distance ?? "",
+                  speed: s.speed ?? "",
+                  resistance: s.resistance ?? "",
+                  incline: s.incline ?? "",
+                })),
+              })),
+            };
             set({
               hydrated: true,
-              activeWorkout: parsed,
+              activeWorkout: normalizedDraft,
               sheetOpen: false,
             });
-            const exIds = parsed.exercises.map((e) => e.exerciseId);
+            const exIds = normalizedDraft.exercises.map((e) => e.exerciseId);
             if (exIds.length > 0) {
               void get().loadPreviousPerformance(exIds);
             }
@@ -403,21 +449,30 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
         useAppDataStore.getState().settings?.default_rest_seconds ??
         90;
 
-      const added: ActiveExerciseDraft[] = exerciseIds.map((exerciseId) => ({
-        draftId: crypto.randomUUID(),
-        exerciseId,
-        supersetGroup: null,
-        restSeconds: rest,
-        targetRepsMin: null,
-        targetRepsMax: null,
-        targetRpe: null,
-        notes: "",
-        sets: [
-          createEmptySet("normal"),
-          createEmptySet("normal"),
-          createEmptySet("normal"),
-        ],
-      }));
+      const allExercises = useAppDataStore.getState().exercises;
+      const exerciseMap = new Map(allExercises.map((ex) => [ex.id, ex]));
+
+      const added: ActiveExerciseDraft[] = exerciseIds.map((exerciseId) => {
+        const trackingType = exerciseMap.get(exerciseId)?.tracking_type;
+        const isCardio = trackingType === "cardio";
+        return {
+          draftId: crypto.randomUUID(),
+          exerciseId,
+          supersetGroup: null,
+          restSeconds: isCardio ? 60 : rest,
+          targetRepsMin: null,
+          targetRepsMax: null,
+          targetRpe: null,
+          notes: "",
+          sets: isCardio
+            ? [createEmptySet("normal")]
+            : [
+                createEmptySet("normal"),
+                createEmptySet("normal"),
+                createEmptySet("normal"),
+              ],
+        };
+      });
 
       commitDraft({
         ...current,
@@ -482,6 +537,10 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
                   reps: "",
                   rpe: null,
                   durationSeconds: "",
+                  distance: "",
+                  speed: "",
+                  resistance: "",
+                  incline: "",
                 }
           ),
         };
@@ -578,6 +637,10 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
             reps: prevSet ? prevSet.reps : "",
             rpe: null,
             durationSeconds: prevSet ? prevSet.durationSeconds : "",
+            distance: prevSet ? prevSet.distance : "",
+            speed: prevSet ? prevSet.speed : "",
+            resistance: prevSet ? prevSet.resistance : "",
+            incline: prevSet ? prevSet.incline : "",
             isCompleted: false,
             completedAt: null,
           };
@@ -624,24 +687,51 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
     applyPreviousToSet: (draftId, setId, fallback) => {
       const current = get().activeWorkout;
       if (!current) return;
+      const exerciseMap = new Map(
+        useAppDataStore.getState().exercises.map((ex) => [ex.id, ex])
+      );
 
       commitDraft({
         ...current,
         exercises: current.exercises.map((ex) => {
           if (ex.draftId !== draftId) return ex;
+          const isCardio =
+            exerciseMap.get(ex.exerciseId)?.tracking_type === "cardio";
+
           return {
             ...ex,
             sets: ex.sets.map((s) => {
               if (s.id !== setId) return s;
+              const prevDuration =
+                fallback.durationSeconds !== null
+                  ? isCardio
+                    ? formatCardioDurationInput(fallback.durationSeconds)
+                    : String(fallback.durationSeconds)
+                  : s.durationSeconds;
+
               return {
                 ...s,
                 weight:
                   fallback.weight !== null ? String(fallback.weight) : s.weight,
                 reps: fallback.reps !== null ? String(fallback.reps) : s.reps,
-                durationSeconds:
-                  fallback.durationSeconds !== null
-                    ? String(fallback.durationSeconds)
-                    : s.durationSeconds,
+                durationSeconds: prevDuration || s.durationSeconds,
+                distance:
+                  fallback.distance !== null && fallback.distance !== undefined
+                    ? formatCardioDecimal(fallback.distance)
+                    : s.distance,
+                speed:
+                  fallback.speed !== null && fallback.speed !== undefined
+                    ? formatCardioDecimal(fallback.speed)
+                    : s.speed,
+                resistance:
+                  fallback.resistance !== null &&
+                  fallback.resistance !== undefined
+                    ? formatCardioDecimal(fallback.resistance)
+                    : s.resistance,
+                incline:
+                  fallback.incline !== null && fallback.incline !== undefined
+                    ? formatCardioDecimal(fallback.incline)
+                    : s.incline,
               };
             }),
           };
@@ -666,6 +756,10 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
       const completing = !targetSet.isCompleted;
       const nowIso = new Date().toISOString();
       const fallback = options?.fallback;
+      const exMeta = useAppDataStore
+        .getState()
+        .exercises.find((e) => e.id === exercise.exerciseId);
+      const isCardio = exMeta?.tracking_type === "cardio";
 
       const nextExercises = current.exercises.map((ex) => {
         if (ex.draftId !== draftId) return ex;
@@ -696,7 +790,35 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
                 ? s.durationSeconds
                 : fallback?.durationSeconds !== null &&
                     fallback?.durationSeconds !== undefined
-                  ? String(fallback.durationSeconds)
+                  ? isCardio
+                    ? formatCardioDurationInput(fallback.durationSeconds)
+                    : String(fallback.durationSeconds)
+                  : "";
+            const adoptedDistance =
+              s.distance.trim().length > 0
+                ? s.distance
+                : fallback?.distance !== null &&
+                    fallback?.distance !== undefined
+                  ? formatCardioDecimal(fallback.distance)
+                  : "";
+            const adoptedSpeed =
+              s.speed.trim().length > 0
+                ? s.speed
+                : fallback?.speed !== null && fallback?.speed !== undefined
+                  ? formatCardioDecimal(fallback.speed)
+                  : "";
+            const adoptedResistance =
+              s.resistance.trim().length > 0
+                ? s.resistance
+                : fallback?.resistance !== null &&
+                    fallback?.resistance !== undefined
+                  ? formatCardioDecimal(fallback.resistance)
+                  : "";
+            const adoptedIncline =
+              s.incline.trim().length > 0
+                ? s.incline
+                : fallback?.incline !== null && fallback?.incline !== undefined
+                  ? formatCardioDecimal(fallback.incline)
                   : "";
 
             return {
@@ -704,6 +826,10 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
               weight: adoptedWeight,
               reps: adoptedReps,
               durationSeconds: adoptedDuration,
+              distance: adoptedDistance,
+              speed: adoptedSpeed,
+              resistance: adoptedResistance,
+              incline: adoptedIncline,
               isCompleted: true,
               completedAt: nowIso,
             };
@@ -745,14 +871,21 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
         ? Math.max(0, Math.floor((now.getTime() - startedMs) / 1000))
         : 0;
 
+      const appData = useAppDataStore.getState();
+      const exerciseMap = new Map(appData.exercises.map((ex) => [ex.id, ex]));
       const rawCompletedSets: WorkoutSet[] = [];
       let sequentialExOrder = 0;
 
       for (const ex of current.exercises) {
         const completedForEx = ex.sets.filter((s) => s.isCompleted);
         if (completedForEx.length === 0) continue;
+        const isCardio = exerciseMap.get(ex.exerciseId)?.tracking_type === "cardio";
 
         completedForEx.forEach((s, setIdx) => {
+          const parsedDuration = isCardio
+            ? parseCardioTimeInput(s.durationSeconds)
+            : parseOptionalInt(s.durationSeconds);
+
           rawCompletedSets.push({
             id: s.id,
             workout_id: current.id,
@@ -761,10 +894,14 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
             superset_group: ex.supersetGroup,
             set_number: setIdx + 1,
             set_type: s.setType,
-            weight: parseOptionalFloat(s.weight),
-            reps: parseOptionalInt(s.reps),
+            weight: isCardio ? null : parseOptionalFloat(s.weight),
+            reps: isCardio ? null : parseOptionalInt(s.reps),
             rpe: s.rpe,
-            duration_seconds: parseOptionalInt(s.durationSeconds),
+            duration_seconds: parsedDuration,
+            distance: isCardio ? parseOptionalFloat(s.distance) : null,
+            speed: isCardio ? parseOptionalFloat(s.speed) : null,
+            resistance: isCardio ? parseOptionalFloat(s.resistance) : null,
+            incline: isCardio ? parseOptionalIncline(s.incline) : null,
             rest_seconds: ex.restSeconds,
             is_completed: true,
             completed_at: s.completedAt ?? completedAt,
@@ -781,7 +918,6 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
         sequentialExOrder += 1;
       }
 
-      const appData = useAppDataStore.getState();
       const totals = computeWorkoutTotals(rawCompletedSets);
       const prEval = computeOptimisticPRs(
         rawCompletedSets,
@@ -869,6 +1005,10 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set, get) => {
               reps: ws.reps,
               rpe: ws.rpe,
               duration_seconds: ws.duration_seconds,
+              distance: ws.distance,
+              speed: ws.speed,
+              resistance: ws.resistance,
+              incline: ws.incline,
               rest_seconds: ws.rest_seconds,
               is_completed: true,
               completed_at: ws.completed_at,

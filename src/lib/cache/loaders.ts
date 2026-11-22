@@ -328,6 +328,13 @@ function normalizeWorkoutSetNumeric(raw: WorkoutSet): WorkoutSet {
     rpe: raw.rpe !== null ? Number(raw.rpe) : null,
     duration_seconds:
       raw.duration_seconds !== null ? Number(raw.duration_seconds) : null,
+    distance: raw.distance !== null && raw.distance !== undefined ? Number(raw.distance) : null,
+    speed: raw.speed !== null && raw.speed !== undefined ? Number(raw.speed) : null,
+    resistance:
+      raw.resistance !== null && raw.resistance !== undefined
+        ? Number(raw.resistance)
+        : null,
+    incline: raw.incline !== null && raw.incline !== undefined ? Number(raw.incline) : null,
     rest_seconds: raw.rest_seconds !== null ? Number(raw.rest_seconds) : null,
   };
 }
@@ -382,6 +389,11 @@ interface ExerciseProgressRpcRow {
   total_volume: number | string;
   best_set_weight: number | string | null;
   best_set_reps: number | null;
+  total_duration_seconds: number | null;
+  total_distance: number | string | null;
+  max_speed: number | string | null;
+  max_resistance: number | string | null;
+  max_incline: number | string | null;
 }
 
 export async function getExerciseProgress(
@@ -412,6 +424,11 @@ export async function getExerciseProgress(
       row.best_set_weight !== null ? Number(row.best_set_weight) : null,
     best_set_reps:
       row.best_set_reps !== null ? Number(row.best_set_reps) : null,
+    total_duration_seconds: Number(row.total_duration_seconds ?? 0),
+    total_distance: Number(row.total_distance ?? 0),
+    max_speed: Number(row.max_speed ?? 0),
+    max_resistance: Number(row.max_resistance ?? 0),
+    max_incline: Number(row.max_incline ?? 0),
   }));
 }
 

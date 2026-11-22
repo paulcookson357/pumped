@@ -21,6 +21,12 @@ import { replaceExerciseInRoutineTemplate } from "@/lib/routines/swap";
 import { getSupersetPositions } from "@/lib/routines/supersets";
 import type { Exercise, RoutineExercise } from "@/lib/types/domain";
 import {
+  formatCardioDecimal,
+  formatCardioDurationCompact,
+  getDistanceUnit,
+  parseCardioTimeInput,
+} from "@/lib/workouts/cardio";
+import {
   computeWorkoutTotals,
   formatElapsedDuration,
   formatNumberCompact,
@@ -136,7 +142,13 @@ export function ActiveWorkoutSheet() {
 
   const liveTotals = useMemo(() => {
     if (!activeWorkout) {
-      return { totalVolume: 0, totalSets: 0, unfinishedSets: 0 };
+      return {
+        totalVolume: 0,
+        totalSets: 0,
+        unfinishedSets: 0,
+        totalCardioSeconds: 0,
+        totalDistance: 0,
+      };
     }
     const allSets = activeWorkout.exercises.flatMap((ex) =>
       ex.sets.map((s) => ({
@@ -148,12 +160,29 @@ export function ActiveWorkoutSheet() {
     );
     const totals = computeWorkoutTotals(allSets);
     const unfinishedSets = allSets.filter((s) => !s.is_completed).length;
+
+    let totalCardioSeconds = 0;
+    let totalDistance = 0;
+    for (const ex of activeWorkout.exercises) {
+      const isCardioEx = exerciseMap.get(ex.exerciseId)?.tracking_type === "cardio";
+      if (!isCardioEx) continue;
+      for (const s of ex.sets) {
+        if (!s.isCompleted) continue;
+        const secs = parseCardioTimeInput(s.durationSeconds);
+        if (secs !== null && secs > 0) totalCardioSeconds += secs;
+        const dist = Number(s.distance);
+        if (Number.isFinite(dist) && dist > 0) totalDistance += dist;
+      }
+    }
+
     return {
       totalVolume: totals.totalVolume,
       totalSets: totals.totalSets,
       unfinishedSets,
+      totalCardioSeconds,
+      totalDistance: Math.round(totalDistance * 100) / 100,
     };
-  }, [activeWorkout]);
+  }, [activeWorkout, exerciseMap]);
 
   if (!activeWorkout || !sheetOpen) {
     return null;
@@ -373,13 +402,33 @@ export function ActiveWorkoutSheet() {
                 {liveTotals.totalSets}
               </strong>
             </span>
-            <span>
-              Vol{" "}
-              <strong className="font-semibold text-zinc-950">
-                {formatNumberCompact(liveTotals.totalVolume)}{" "}
-                {activeWorkout.weightUnit}
-              </strong>
-            </span>
+            {liveTotals.totalVolume > 0 ||
+            (liveTotals.totalCardioSeconds === 0 &&
+              liveTotals.totalDistance === 0) ? (
+              <span>
+                Vol{" "}
+                <strong className="font-semibold text-zinc-950">
+                  {formatNumberCompact(liveTotals.totalVolume)}{" "}
+                  {activeWorkout.weightUnit}
+                </strong>
+              </span>
+            ) : (
+              <span>
+                Cardio{" "}
+                <strong className="font-semibold text-zinc-950">
+                  {liveTotals.totalCardioSeconds > 0
+                    ? formatCardioDurationCompact(liveTotals.totalCardioSeconds)
+                    : ""}
+                  {liveTotals.totalCardioSeconds > 0 &&
+                  liveTotals.totalDistance > 0
+                    ? " • "
+                    : ""}
+                  {liveTotals.totalDistance > 0
+                    ? `${formatCardioDecimal(liveTotals.totalDistance)} ${getDistanceUnit(activeWorkout.weightUnit)}`
+                    : ""}
+                </strong>
+              </span>
+            )}
           </div>
 
           <button

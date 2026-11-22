@@ -34,6 +34,14 @@ import type {
 } from "@/lib/types/domain";
 import { groupWorkoutSetsByExercise } from "@/lib/workouts/progress";
 import {
+  computeCardioTotals,
+  formatCardioDecimal,
+  formatCardioDurationCompact,
+  formatCardioSetSummary,
+  getDistanceUnit,
+  hasAnyCardioMetrics,
+} from "@/lib/workouts/cardio";
+import {
   formatElapsedDuration,
   formatNumberCompact,
 } from "@/lib/workouts/stats";
@@ -218,21 +226,25 @@ export function WorkoutDetailClient({
     const now = new Date().toISOString();
     const defaultRest = effectiveSettings?.default_rest_seconds ?? 90;
 
-    const templateRows: RoutineExercise[] = exerciseGroups.map((group, idx) => ({
-      id: crypto.randomUUID(),
-      routine_id: workout.routine_id ?? workout.id,
-      exercise_id: group.exerciseId,
-      sort_order: idx,
-      superset_group: group.supersetGroup,
-      target_sets: Math.max(1, group.sets.length),
-      target_reps_min: group.sets[0]?.reps ?? null,
-      target_reps_max: null,
-      target_rpe: null,
-      rest_seconds: group.sets[0]?.rest_seconds ?? defaultRest,
-      notes: group.notes,
-      created_at: now,
-      updated_at: now,
-    }));
+    const templateRows: RoutineExercise[] = exerciseGroups.map((group, idx) => {
+      const tracking = exerciseMap.get(group.exerciseId)?.tracking_type;
+      const isCardioOrDuration = tracking === "cardio" || tracking === "duration";
+      return {
+        id: crypto.randomUUID(),
+        routine_id: workout.routine_id ?? workout.id,
+        exercise_id: group.exerciseId,
+        sort_order: idx,
+        superset_group: group.supersetGroup,
+        target_sets: Math.max(1, group.sets.length),
+        target_reps_min: isCardioOrDuration ? null : (group.sets[0]?.reps ?? null),
+        target_reps_max: null,
+        target_rpe: null,
+        rest_seconds: group.sets[0]?.rest_seconds ?? defaultRest,
+        notes: group.notes,
+        created_at: now,
+        updated_at: now,
+      };
+    });
 
     requestStartWorkout({
       routine: routine ?? null,
@@ -250,6 +262,8 @@ export function WorkoutDetailClient({
     const seedExercises: RoutineExercise[] = exerciseGroups.map((group, idx) => {
       const workingSets = group.sets.filter((s) => s.set_type !== "warmup");
       const firstSet = workingSets[0] ?? group.sets[0];
+      const tracking = exerciseMap.get(group.exerciseId)?.tracking_type;
+      const isCardioOrDuration = tracking === "cardio" || tracking === "duration";
       return {
         id: crypto.randomUUID(),
         routine_id: workout.id,
@@ -257,8 +271,8 @@ export function WorkoutDetailClient({
         sort_order: idx,
         superset_group: group.supersetGroup,
         target_sets: Math.max(1, group.sets.length),
-        target_reps_min: firstSet?.reps ?? null,
-        target_reps_max: firstSet?.reps ?? null,
+        target_reps_min: isCardioOrDuration ? null : (firstSet?.reps ?? null),
+        target_reps_max: isCardioOrDuration ? null : (firstSet?.reps ?? null),
         target_rpe: firstSet?.rpe ?? null,
         rest_seconds: firstSet?.rest_seconds ?? defaultRest,
         notes: group.notes,
@@ -406,40 +420,62 @@ export function WorkoutDetailClient({
       </div>
 
       {/* 4-cell metric grid */}
-      <section className="-mx-4 grid grid-cols-2 divide-x divide-y divide-zinc-200 border-y border-zinc-200 bg-white sm:-mx-6 sm:grid-cols-4 sm:divide-y-0">
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Duration
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-            {formatElapsedDuration(workout.duration_seconds ?? 0)}
-          </p>
-        </div>
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Volume
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-            {formatNumberCompact(workout.total_volume)} {workout.weight_unit}
-          </p>
-        </div>
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            Completed Sets
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
-            {workout.total_sets}
-          </p>
-        </div>
-        <div className="px-4 py-3 sm:px-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-            PRs
-          </p>
-          <p className="tabular-nums mt-0.5 text-lg font-bold text-emerald-600">
-            {workout.pr_count}
-          </p>
-        </div>
-      </section>
+      {(() => {
+        const cardioTotals = computeCardioTotals(
+          sets.filter(
+            (s) =>
+              exerciseMap.get(s.exercise_id)?.tracking_type === "cardio" ||
+              hasAnyCardioMetrics(s)
+          )
+        );
+        const showCardioCell =
+          workout.total_volume === 0 &&
+          (cardioTotals.totalDistance > 0 || cardioTotals.totalCardioSeconds > 0);
+        return (
+          <section className="-mx-4 grid grid-cols-2 divide-x divide-y divide-zinc-200 border-y border-zinc-200 bg-white sm:-mx-6 sm:grid-cols-4 sm:divide-y-0">
+            <div className="px-4 py-3 sm:px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                Duration
+              </p>
+              <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+                {formatElapsedDuration(workout.duration_seconds ?? 0)}
+              </p>
+            </div>
+            <div className="px-4 py-3 sm:px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                {showCardioCell
+                  ? cardioTotals.totalDistance > 0
+                    ? "Distance"
+                    : "Cardio Time"
+                  : "Volume"}
+              </p>
+              <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+                {showCardioCell
+                  ? cardioTotals.totalDistance > 0
+                    ? `${formatCardioDecimal(cardioTotals.totalDistance)} ${getDistanceUnit(workout.weight_unit)}`
+                    : formatCardioDurationCompact(cardioTotals.totalCardioSeconds)
+                  : `${formatNumberCompact(workout.total_volume)} ${workout.weight_unit}`}
+              </p>
+            </div>
+            <div className="px-4 py-3 sm:px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                Completed Sets
+              </p>
+              <p className="tabular-nums mt-0.5 text-lg font-bold text-zinc-950">
+                {workout.total_sets}
+              </p>
+            </div>
+            <div className="px-4 py-3 sm:px-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                PRs
+              </p>
+              <p className="tabular-nums mt-0.5 text-lg font-bold text-emerald-600">
+                {workout.pr_count}
+              </p>
+            </div>
+          </section>
+        );
+      })()}
 
       {workout.notes && (
         <section className="-mx-4 border-b border-zinc-200 bg-zinc-50/50 px-4 py-3 sm:-mx-6 sm:px-6">
@@ -526,13 +562,19 @@ export function WorkoutDetailClient({
                           : 0;
 
                       const perfLabel =
-                        trackingType === "duration"
-                          ? `${ws.duration_seconds ?? 0}s`
-                          : trackingType === "bodyweight_reps"
-                            ? `${ws.reps ?? 0} reps`
-                            : ws.weight !== null && ws.weight > 0
-                              ? `${formatNumberCompact(ws.weight)} ${workout.weight_unit} × ${ws.reps ?? 0}`
-                              : `${ws.reps ?? 0} reps`;
+                        trackingType === "cardio" ||
+                        ws.distance !== null ||
+                        ws.speed !== null ||
+                        ws.resistance !== null ||
+                        ws.incline !== null
+                          ? formatCardioSetSummary(ws, workout.weight_unit)
+                          : trackingType === "duration"
+                            ? `${ws.duration_seconds ?? 0}s`
+                            : trackingType === "bodyweight_reps"
+                              ? `${ws.reps ?? 0} reps`
+                              : ws.weight !== null && ws.weight > 0
+                                ? `${formatNumberCompact(ws.weight)} ${workout.weight_unit} × ${ws.reps ?? 0}`
+                                : `${ws.reps ?? 0} reps`;
 
                       return (
                         <div

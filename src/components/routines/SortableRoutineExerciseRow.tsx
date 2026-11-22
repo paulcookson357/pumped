@@ -75,6 +75,7 @@ export function SortableRoutineExerciseRow({
   const isFirst = index === 0;
   const isLast = index === totalCount - 1;
   const inSuperset = supersetLabel !== null;
+  const isCardio = exercise?.tracking_type === "cardio";
 
   return (
     <div
@@ -180,13 +181,17 @@ export function SortableRoutineExerciseRow({
       )}
 
       {/* Prescription controls */}
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+      <div
+        className={`mt-3 grid grid-cols-2 gap-2.5 ${
+          isCardio ? "sm:grid-cols-3" : "sm:grid-cols-5"
+        }`}
+      >
         <div>
           <label
             htmlFor={`sets-${item.id}`}
             className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
           >
-            Sets
+            {isCardio ? "Intervals" : "Sets"}
           </label>
           <input
             id={`sets-${item.id}`}
@@ -226,49 +231,53 @@ export function SortableRoutineExerciseRow({
           </select>
         </div>
 
-        <div>
-          <label
-            htmlFor={`min-reps-${item.id}`}
-            className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
-          >
-            Min Reps
-          </label>
-          <input
-            id={`min-reps-${item.id}`}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={500}
-            placeholder="8"
-            value={item.repsMinInput}
-            onChange={(e) =>
-              onChange(item.id, { repsMinInput: e.target.value })
-            }
-            className="tabular-nums mt-1 min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
-          />
-        </div>
+        {!isCardio && (
+          <>
+            <div>
+              <label
+                htmlFor={`min-reps-${item.id}`}
+                className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
+              >
+                Min Reps
+              </label>
+              <input
+                id={`min-reps-${item.id}`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={500}
+                placeholder="8"
+                value={item.repsMinInput}
+                onChange={(e) =>
+                  onChange(item.id, { repsMinInput: e.target.value })
+                }
+                className="tabular-nums mt-1 min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
+              />
+            </div>
 
-        <div>
-          <label
-            htmlFor={`max-reps-${item.id}`}
-            className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
-          >
-            Max Reps
-          </label>
-          <input
-            id={`max-reps-${item.id}`}
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={500}
-            placeholder="12"
-            value={item.repsMaxInput}
-            onChange={(e) =>
-              onChange(item.id, { repsMaxInput: e.target.value })
-            }
-            className="tabular-nums mt-1 min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
-          />
-        </div>
+            <div>
+              <label
+                htmlFor={`max-reps-${item.id}`}
+                className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400"
+              >
+                Max Reps
+              </label>
+              <input
+                id={`max-reps-${item.id}`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={500}
+                placeholder="12"
+                value={item.repsMaxInput}
+                onChange={(e) =>
+                  onChange(item.id, { repsMaxInput: e.target.value })
+                }
+                className="tabular-nums mt-1 min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
+              />
+            </div>
+          </>
+        )}
 
         <div className="col-span-2 sm:col-span-1">
           <label
@@ -322,7 +331,11 @@ export function SortableRoutineExerciseRow({
           maxLength={400}
           value={item.notes}
           onChange={(e) => onChange(item.id, { notes: e.target.value })}
-          placeholder="Form cue or setup note (optional)"
+          placeholder={
+            isCardio
+              ? "Target duration, speed, incline, or resistance (optional)"
+              : "Form cue or setup note (optional)"
+          }
           aria-label="Exercise setup note"
           className="min-h-[44px] w-full rounded-lg border border-zinc-200 bg-zinc-50/70 px-3 text-base text-zinc-950 placeholder:text-zinc-400 focus:border-emerald-600 focus:bg-white focus:outline-none"
         />

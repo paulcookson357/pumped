@@ -4,6 +4,12 @@ import { useState } from "react";
 import { Check, Trash2 } from "lucide-react";
 import type { SetType, TrackingType, WeightUnit } from "@/lib/types/domain";
 import {
+  formatCardioDecimal,
+  formatCardioDurationInput,
+  getDistanceUnit,
+  getSpeedUnit,
+} from "@/lib/workouts/cardio";
+import {
   formatNumberCompact,
   formatPreviousSetLabel,
 } from "@/lib/workouts/stats";
@@ -16,6 +22,10 @@ interface PreviousSetSnapshot {
   reps: number | null;
   rpe: number | null;
   duration_seconds: number | null;
+  distance?: number | null;
+  speed?: number | null;
+  resistance?: number | null;
+  incline?: number | null;
 }
 
 interface SetRowProps {
@@ -31,7 +41,15 @@ interface SetRowProps {
     patch: Partial<
       Pick<
         ActiveSetDraft,
-        "setType" | "weight" | "reps" | "rpe" | "durationSeconds"
+        | "setType"
+        | "weight"
+        | "reps"
+        | "rpe"
+        | "durationSeconds"
+        | "distance"
+        | "speed"
+        | "resistance"
+        | "incline"
       >
     >
   ) => void;
@@ -86,9 +104,12 @@ export function SetRow({
   const [rpeMenuOpen, setRpeMenuOpen] = useState(false);
 
   const prevLabel = formatPreviousSetLabel(prevSet, trackingType, weightUnit);
+  const isCardio = trackingType === "cardio";
   const hasWeightCol =
     trackingType === "weight_reps" || trackingType === "weighted_bodyweight";
   const isDuration = trackingType === "duration";
+  const distanceUnit = getDistanceUnit(weightUnit);
+  const speedUnit = getSpeedUnit(weightUnit);
 
   const weightPlaceholder =
     prevSet && prevSet.weight !== null
@@ -108,6 +129,11 @@ export function SetRow({
     prevSet && prevSet.duration_seconds !== null
       ? String(prevSet.duration_seconds)
       : "30";
+
+  const cardioTimePlaceholder =
+    prevSet && prevSet.duration_seconds !== null && prevSet.duration_seconds > 0
+      ? formatCardioDurationInput(prevSet.duration_seconds)
+      : "20:00";
 
   const typeMeta = SET_TYPE_META[set.setType];
   const badgeText = set.setType === "normal" ? String(setNumber) : typeMeta.short;
@@ -158,8 +184,18 @@ export function SetRow({
           />
         )}
 
-        {/* Reps or Duration input */}
-        {isDuration ? (
+        {/* Time / Reps / Duration input */}
+        {isCardio ? (
+          <input
+            id={`set-${set.id}-duration`}
+            type="text"
+            value={set.durationSeconds}
+            onChange={(e) => onUpdate({ durationSeconds: e.target.value })}
+            placeholder={cardioTimePlaceholder}
+            aria-label={`Interval ${setNumber} time (mm:ss or minutes)`}
+            className="tabular-nums min-h-[40px] w-[78px] shrink-0 rounded-lg border border-zinc-200 bg-white px-2 text-center text-base font-semibold text-zinc-950 placeholder:text-zinc-300 focus:border-emerald-600 focus:outline-none sm:w-24"
+          />
+        ) : isDuration ? (
           <input
             id={`set-${set.id}-duration`}
             type="text"
@@ -209,8 +245,8 @@ export function SetRow({
           onClick={onToggleComplete}
           aria-label={
             set.isCompleted
-              ? `Mark set ${setNumber} incomplete`
-              : `Complete set ${setNumber}`
+              ? `Mark ${isCardio ? "interval" : "set"} ${setNumber} incomplete`
+              : `Complete ${isCardio ? "interval" : "set"} ${setNumber}`
           }
           aria-pressed={set.isCompleted}
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors ${
@@ -222,6 +258,104 @@ export function SetRow({
           <Check className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
         </button>
       </div>
+
+      {/* Cardio metrics grid (distance, speed, resistance, incline) */}
+      {isCardio && (
+        <div className="grid grid-cols-2 gap-2 px-4 pt-0.5 pb-2.5 sm:grid-cols-4 sm:px-6">
+          <div>
+            <label
+              htmlFor={`set-${set.id}-distance`}
+              className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+            >
+              Dist ({distanceUnit})
+            </label>
+            <input
+              id={`set-${set.id}-distance`}
+              type="text"
+              inputMode="decimal"
+              value={set.distance}
+              onChange={(e) => onUpdate({ distance: e.target.value })}
+              placeholder={
+                prevSet?.distance !== null && prevSet?.distance !== undefined
+                  ? formatCardioDecimal(prevSet.distance)
+                  : "0.0"
+              }
+              aria-label={`Interval ${setNumber} distance in ${distanceUnit}`}
+              className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-center text-base font-semibold text-zinc-950 placeholder:text-zinc-300 focus:border-emerald-600 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor={`set-${set.id}-speed`}
+              className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+            >
+              Speed ({speedUnit})
+            </label>
+            <input
+              id={`set-${set.id}-speed`}
+              type="text"
+              inputMode="decimal"
+              value={set.speed}
+              onChange={(e) => onUpdate({ speed: e.target.value })}
+              placeholder={
+                prevSet?.speed !== null && prevSet?.speed !== undefined
+                  ? formatCardioDecimal(prevSet.speed)
+                  : "0.0"
+              }
+              aria-label={`Interval ${setNumber} speed in ${speedUnit}`}
+              className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-center text-base font-semibold text-zinc-950 placeholder:text-zinc-300 focus:border-emerald-600 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor={`set-${set.id}-resistance`}
+              className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+            >
+              Resist (Lvl)
+            </label>
+            <input
+              id={`set-${set.id}-resistance`}
+              type="text"
+              inputMode="decimal"
+              value={set.resistance}
+              onChange={(e) => onUpdate({ resistance: e.target.value })}
+              placeholder={
+                prevSet?.resistance !== null &&
+                prevSet?.resistance !== undefined
+                  ? formatCardioDecimal(prevSet.resistance)
+                  : "—"
+              }
+              aria-label={`Interval ${setNumber} resistance level`}
+              className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-center text-base font-semibold text-zinc-950 placeholder:text-zinc-300 focus:border-emerald-600 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor={`set-${set.id}-incline`}
+              className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400"
+            >
+              Incline (%)
+            </label>
+            <input
+              id={`set-${set.id}-incline`}
+              type="text"
+              inputMode="decimal"
+              value={set.incline}
+              onChange={(e) => onUpdate({ incline: e.target.value })}
+              placeholder={
+                prevSet?.incline !== null && prevSet?.incline !== undefined
+                  ? formatCardioDecimal(prevSet.incline)
+                  : "—"
+              }
+              aria-label={`Interval ${setNumber} incline percentage`}
+              className="tabular-nums mt-0.5 min-h-[40px] w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-center text-base font-semibold text-zinc-950 placeholder:text-zinc-300 focus:border-emerald-600 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Inline Set Type + Delete Selector */}
       {typeMenuOpen && (

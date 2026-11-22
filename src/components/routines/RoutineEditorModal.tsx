@@ -169,17 +169,22 @@ export function RoutineEditorModal({
   }
 
   function handleAddExercises(selectedIds: string[]) {
-    const newItems: DraftRoutineExercise[] = selectedIds.map((exerciseId) => ({
-      id: crypto.randomUUID(),
-      exercise_id: exerciseId,
-      superset_group: null,
-      setsInput: "3",
-      repsMinInput: "8",
-      repsMaxInput: "12",
-      targetRpe: 8,
-      restInput: String(defaultRestSeconds),
-      notes: "",
-    }));
+    const newItems: DraftRoutineExercise[] = selectedIds.map((exerciseId) => {
+      const ex = exerciseById.get(exerciseId);
+      const isCardio = ex?.tracking_type === "cardio";
+      const isDuration = ex?.tracking_type === "duration";
+      return {
+        id: crypto.randomUUID(),
+        exercise_id: exerciseId,
+        superset_group: null,
+        setsInput: isCardio ? "1" : "3",
+        repsMinInput: isCardio || isDuration ? "" : "8",
+        repsMaxInput: isCardio || isDuration ? "" : "12",
+        targetRpe: isCardio ? null : 8,
+        restInput: isCardio ? "60" : String(defaultRestSeconds),
+        notes: "",
+      };
+    });
     setDraftExercises((prev) => [...prev, ...newItems]);
     setPickerOpen(false);
     setErrorMessage(null);
