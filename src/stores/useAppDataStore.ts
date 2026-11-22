@@ -59,6 +59,7 @@ interface HydrateOptions {
   preserveNonEmptyRoutines?: boolean;
   preserveNonEmptySchedule?: boolean;
   preserveNonEmptyWorkouts?: boolean;
+  preserveNonEmptySettings?: boolean;
 }
 
 interface AppDataState {
@@ -154,6 +155,10 @@ export const useAppDataStore = create<AppDataState>((set) => ({
         Boolean(options?.preserveNonEmptyWorkouts) &&
         data.workouts.length === 0 &&
         state.workouts.length > 0;
+      const keepSettings =
+        Boolean(options?.preserveNonEmptySettings) &&
+        data.settings === null &&
+        state.settings !== null;
 
       return {
         hydrated: true,
@@ -177,7 +182,7 @@ export const useAppDataStore = create<AppDataState>((set) => ({
           ? state.workouts
           : sortWorkoutsDesc(data.workouts),
         workoutSets: keepWorkouts ? state.workoutSets : data.workoutSets,
-        settings: data.settings,
+        settings: keepSettings ? state.settings : data.settings,
       };
     }),
 

@@ -536,6 +536,35 @@ export async function POST(request: NextRequest) {
           appliedIds.push(mutation.id);
           break;
         }
+
+        case "UPDATE_SETTINGS": {
+          const { payload } = mutation;
+          const { error: settingsErr } = await supabase
+            .from("app_settings")
+            .upsert(
+              {
+                id: 1,
+                weight_unit: payload.weight_unit,
+                default_rest_seconds: payload.default_rest_seconds,
+                auto_start_rest_timer: payload.auto_start_rest_timer,
+                show_rpe_column: payload.show_rpe_column,
+                timer_sound_enabled: payload.timer_sound_enabled,
+                timer_haptics_enabled: payload.timer_haptics_enabled,
+              },
+              { onConflict: "id" }
+            );
+
+          if (settingsErr) {
+            return NextResponse.json(
+              { error: settingsErr.message },
+              { status: 500 }
+            );
+          }
+
+          touchedDomains.add("settings");
+          appliedIds.push(mutation.id);
+          break;
+        }
       }
     }
 

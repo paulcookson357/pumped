@@ -244,6 +244,15 @@ export const deleteWorkoutPayloadSchema = z.object({
   id: z.string().uuid(),
 });
 
+export const updateSettingsPayloadSchema = z.object({
+  weight_unit: weightUnitSchema,
+  default_rest_seconds: z.number().int().min(0).max(900),
+  auto_start_rest_timer: z.boolean(),
+  show_rpe_column: z.boolean(),
+  timer_sound_enabled: z.boolean(),
+  timer_haptics_enabled: z.boolean(),
+});
+
 export const syncMutationSchema = z.discriminatedUnion("type", [
   z.object({
     id: z.string().min(1),
@@ -311,6 +320,12 @@ export const syncMutationSchema = z.discriminatedUnion("type", [
     clientUpdatedAt: z.string().datetime(),
     payload: deleteWorkoutPayloadSchema,
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("UPDATE_SETTINGS"),
+    clientUpdatedAt: z.string().datetime(),
+    payload: updateSettingsPayloadSchema,
+  }),
 ]);
 
 export const syncMutateRequestSchema = z.object({
@@ -337,3 +352,4 @@ export type DeleteScheduledWorkoutPayload = z.infer<
 export type WorkoutSetInput = z.infer<typeof workoutSetInputSchema>;
 export type FinishWorkoutPayload = z.infer<typeof finishWorkoutPayloadSchema>;
 export type DeleteWorkoutPayload = z.infer<typeof deleteWorkoutPayloadSchema>;
+export type UpdateSettingsPayload = z.infer<typeof updateSettingsPayloadSchema>;

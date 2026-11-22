@@ -1,6 +1,6 @@
-const SHELL_CACHE = "pumped-shell-v3";
-const STATIC_CACHE = "pumped-static-v3";
-const MEDIA_CACHE = "pumped-media-v3";
+const SHELL_CACHE = "pumped-shell-v4";
+const STATIC_CACHE = "pumped-static-v4";
+const MEDIA_CACHE = "pumped-media-v4";
 
 const PRECACHE_ROUTES = [
   "/",
@@ -44,7 +44,11 @@ self.addEventListener("activate", (event) => {
 });
 
 function isMediaAsset(pathname) {
-  return pathname.startsWith("/icons/") || pathname.startsWith("/exercises/");
+  return (
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/exercises/gifs/") ||
+    pathname.startsWith("/exercises/photos/")
+  );
 }
 
 function isStaticAsset(url) {
@@ -123,12 +127,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (isMediaAsset(url.pathname)) {
-    event.respondWith(cacheFirst(request, MEDIA_CACHE));
+  if (request.mode === "navigate") {
+    event.respondWith(networkFirstNavigation(request));
     return;
   }
 
-  if (request.mode === "navigate") {
-    event.respondWith(networkFirstNavigation(request));
+  if (isMediaAsset(url.pathname)) {
+    event.respondWith(cacheFirst(request, MEDIA_CACHE));
   }
 });

@@ -425,4 +425,51 @@ describe("outbox coalescing and ordering", () => {
 
     expect(coalesceMutation(finishItem, deleteItem)).toBeNull();
   });
+
+  it("coalesces consecutive UPDATE_SETTINGS items keeping latest payload and original createdAt", () => {
+    const first = buildOutboxItem(
+      {
+        id: "m-set-1",
+        type: "UPDATE_SETTINGS",
+        clientUpdatedAt: "2026-11-22T11:00:00.000Z",
+        payload: {
+          weight_unit: "lbs",
+          default_rest_seconds: 120,
+          auto_start_rest_timer: true,
+          show_rpe_column: true,
+          timer_sound_enabled: true,
+          timer_haptics_enabled: true,
+        },
+      },
+      "settings:1",
+      100
+    );
+
+    const second = buildOutboxItem(
+      {
+        id: "m-set-2",
+        type: "UPDATE_SETTINGS",
+        clientUpdatedAt: "2026-11-22T11:02:00.000Z",
+        payload: {
+          weight_unit: "kg",
+          default_rest_seconds: 60,
+          auto_start_rest_timer: false,
+          show_rpe_column: false,
+          timer_sound_enabled: false,
+          timer_haptics_enabled: true,
+        },
+      },
+      "settings:1",
+      450
+    );
+
+    const merged = coalesceMutation(first, second);
+    expect(merged?.type).toBe("UPDATE_SETTINGS");
+    expect(merged?.createdAt).toBe(100);
+    if (merged?.type === "UPDATE_SETTINGS") {
+      expect(merged.payload.weight_unit).toBe("kg");
+      expect(merged.payload.default_rest_seconds).toBe(60);
+      expect(merged.payload.show_rpe_column).toBe(false);
+    }
+  });
 });

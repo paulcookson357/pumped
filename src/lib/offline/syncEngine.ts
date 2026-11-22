@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  clearDomainCachesPreservingOutbox,
   deleteOutboxItem,
   getOutboxItem,
   getOutboxItems,
@@ -89,6 +90,9 @@ export async function hydrateFromIndexedDB(): Promise<void> {
     (item) =>
       item.type === "FINISH_WORKOUT" || item.type === "DELETE_WORKOUT"
   );
+  const hasSettingsOutbox = local.outbox.some(
+    (item) => item.type === "UPDATE_SETTINGS"
+  );
   const hasAnyCachedData =
     local.exercises.length > 0 ||
     local.routines.length > 0 ||
@@ -103,6 +107,7 @@ export async function hydrateFromIndexedDB(): Promise<void> {
       preserveNonEmptyRoutines: !hasRoutineOutbox,
       preserveNonEmptySchedule: !hasScheduleOutbox,
       preserveNonEmptyWorkouts: !hasWorkoutOutbox,
+      preserveNonEmptySettings: !hasSettingsOutbox,
     });
   }
   useSyncStore.getState().setPendingCount(local.outbox.length);
@@ -296,4 +301,42 @@ export async function enqueueAndSync(
   } else {
     useSyncStore.getState().setStatus("offline");
   }
+}
+
+export async function forceRebuildLocalCache(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const existingOutbox = await getOutboxItems();
+  if (existingOutbox.length > 0) {
+    await flushOutbox();
+    const afterFlush = await getOutboxItems();
+    if (afterFlush.length > 0) {
+      return {
+        ok: false,
+        error: "Pending offline changes must sync before rebuilding cache.",
+      };
+    }
+  }
+
+  if (!isBrowserOnline()) {
+    useSyncStore.getState().setStatus("offline");
+    return {
+      ok: false,
+      error: "Connect to the internet to rebuild local cache.",
+    };
+  }
+
+  await clearDomainCachesPreservingOutbox();
+  await syncIfStale();
+
+  const state = useSyncStore.getState();
+  if (state.status === "error") {
+    return {
+      ok: false,
+      error: state.errorMessage ?? "Failed to rebuild local cache.",
+    };
+  }
+
+  return { ok: true };
 }

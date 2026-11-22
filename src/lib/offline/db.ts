@@ -659,6 +659,130 @@ export async function deleteOutboxItem(key: string): Promise<void> {
   await db.delete("outbox", key);
 }
 
+export interface LocalCacheStats {
+  versions: Record<SyncDomain, number> | null;
+  versionsUpdatedAt: string | null;
+  counts: {
+    exercises: number;
+    routines: number;
+    routineExercises: number;
+    weeklySplitRules: number;
+    scheduledWorkouts: number;
+    workouts: number;
+    workoutSets: number;
+    previousPerformance: number;
+    outbox: number;
+  };
+  hasSettings: boolean;
+}
+
+export async function putLocalSettings(settings: AppSettings): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+  await db.put("settings", settings);
+}
+
+export async function readLocalCacheStats(): Promise<LocalCacheStats> {
+  const db = await getDB();
+  if (!db) {
+    return {
+      versions: null,
+      versionsUpdatedAt: null,
+      counts: {
+        exercises: 0,
+        routines: 0,
+        routineExercises: 0,
+        weeklySplitRules: 0,
+        scheduledWorkouts: 0,
+        workouts: 0,
+        workoutSets: 0,
+        previousPerformance: 0,
+        outbox: 0,
+      },
+      hasSettings: false,
+    };
+  }
+
+  const [
+    metaRecord,
+    exercises,
+    routines,
+    routineExercises,
+    weeklySplitRules,
+    scheduledWorkouts,
+    workouts,
+    workoutSets,
+    previousPerformance,
+    settingsCount,
+    outbox,
+  ] = await Promise.all([
+    db.get("meta", "sync_versions"),
+    db.count("exercises"),
+    db.count("routines"),
+    db.count("routine_exercises"),
+    db.count("weekly_split_rules"),
+    db.count("scheduled_workouts"),
+    db.count("workouts"),
+    db.count("workout_sets"),
+    db.count("previous_performance"),
+    db.count("settings"),
+    db.count("outbox"),
+  ]);
+
+  return {
+    versions: metaRecord?.versions ?? null,
+    versionsUpdatedAt: metaRecord?.updatedAt ?? null,
+    counts: {
+      exercises,
+      routines,
+      routineExercises,
+      weeklySplitRules,
+      scheduledWorkouts,
+      workouts,
+      workoutSets,
+      previousPerformance,
+      outbox,
+    },
+    hasSettings: settingsCount > 0,
+  };
+}
+
+export async function clearDomainCachesPreservingOutbox(): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const tx = db.transaction(
+    [
+      "meta",
+      "exercises",
+      "routines",
+      "routine_exercises",
+      "weekly_split_rules",
+      "scheduled_workouts",
+      "workouts",
+      "workout_sets",
+      "previous_performance",
+      "settings",
+    ],
+    "readwrite"
+  );
+
+  await Promise.all([
+    tx.objectStore("meta").clear(),
+    tx.objectStore("exercises").clear(),
+    tx.objectStore("routines").clear(),
+    tx.objectStore("routine_exercises").clear(),
+    tx.objectStore("weekly_split_rules").clear(),
+    tx.objectStore("scheduled_workouts").clear(),
+    tx.objectStore("workouts").clear(),
+    tx.objectStore("workout_sets").clear(),
+    tx.objectStore("previous_performance").clear(),
+    tx.objectStore("settings").clear(),
+  ]);
+
+  await tx.done;
+}
+
 export async function removeOutboxItems(keys: string[]): Promise<void> {
   const db = await getDB();
   if (!db || keys.length === 0) return;

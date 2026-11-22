@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { CACHE_TAGS } from "@/lib/cache/tags";
+import type { ExportDataset } from "@/lib/export/workoutExport";
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase/server";
 import type {
   AppSettings,
@@ -412,4 +413,172 @@ export async function getExerciseProgress(
     best_set_reps:
       row.best_set_reps !== null ? Number(row.best_set_reps) : null,
   }));
+}
+
+async function fetchAllRows<T>(
+  fetchPage: (
+    from: number,
+    to: number
+  ) => PromiseLike<{
+    data: unknown[] | null;
+    error: { message: string } | null;
+  }>,
+  label: string,
+  pageSize = 1000
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) {
+      throw new Error(`Failed to fetch ${label} for export: ${error.message}`);
+    }
+    const rows = (data ?? []) as T[];
+    all.push(...rows);
+    if (rows.length < pageSize) {
+      break;
+    }
+    from += pageSize;
+  }
+
+  return all;
+}
+
+export async function getFullExportDataset(): Promise<ExportDataset> {
+  if (!isSupabaseConfigured()) {
+    return {
+      exercises: [],
+      routines: [],
+      routineExercises: [],
+      weeklySplitRules: [],
+      scheduledWorkouts: [],
+      workouts: [],
+      workoutSets: [],
+      settings: null,
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+
+  const [
+    exercises,
+    routines,
+    rawRoutineExercises,
+    weeklySplitRules,
+    scheduledWorkouts,
+    rawWorkouts,
+    rawWorkoutSets,
+    settingsRes,
+  ] = await Promise.all([
+    fetchAllRows<Exercise>(
+      (from, to) =>
+        supabase
+          .from("exercises")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "exercises"
+    ),
+    fetchAllRows<Routine>(
+      (from, to) =>
+        supabase
+          .from("routines")
+          .select("*")
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "routines"
+    ),
+    fetchAllRows<RoutineExercise>(
+      (from, to) =>
+        supabase
+          .from("routine_exercises")
+          .select("*")
+          .order("routine_id", { ascending: true })
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "routine_exercises"
+    ),
+    fetchAllRows<WeeklySplitRule>(
+      (from, to) =>
+        supabase
+          .from("weekly_split_rules")
+          .select("*")
+          .order("day_of_week", { ascending: true })
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "weekly_split_rules"
+    ),
+    fetchAllRows<ScheduledWorkout>(
+      (from, to) =>
+        supabase
+          .from("scheduled_workouts")
+          .select("*")
+          .order("scheduled_date", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "scheduled_workouts"
+    ),
+    fetchAllRows<Workout>(
+      (from, to) =>
+        supabase
+          .from("workouts")
+          .select("*")
+          .eq("status", "completed")
+          .order("workout_date", { ascending: false })
+          .order("completed_at", { ascending: false })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "workouts"
+    ),
+    fetchAllRows<WorkoutSet>(
+      (from, to) =>
+        supabase
+          .from("workout_sets")
+          .select("*")
+          .eq("is_completed", true)
+          .order("workout_id", { ascending: true })
+          .order("exercise_order", { ascending: true })
+          .order("set_number", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      "workout_sets"
+    ),
+    supabase.from("app_settings").select("*").eq("id", 1).maybeSingle(),
+  ]);
+
+  if (settingsRes.error) {
+    throw new Error(
+      `Failed to fetch app_settings for export: ${settingsRes.error.message}`
+    );
+  }
+
+  const workouts = rawWorkouts.map(normalizeWorkoutNumeric);
+  const completedWorkoutIds = new Set(workouts.map((w) => w.id));
+  const workoutSets = rawWorkoutSets
+    .filter((ws) => completedWorkoutIds.has(ws.workout_id))
+    .map(normalizeWorkoutSetNumeric);
+  const routineExercises = rawRoutineExercises.map((re) => ({
+    ...re,
+    sort_order: Number(re.sort_order),
+    target_sets: Number(re.target_sets),
+    target_rpe: re.target_rpe !== null ? Number(re.target_rpe) : null,
+    rest_seconds: Number(re.rest_seconds),
+  }));
+
+  return {
+    exercises,
+    routines,
+    routineExercises,
+    weeklySplitRules,
+    scheduledWorkouts,
+    workouts,
+    workoutSets,
+    settings: (settingsRes.data as AppSettings | null) ?? null,
+  };
 }

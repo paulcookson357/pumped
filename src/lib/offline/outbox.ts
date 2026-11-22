@@ -9,6 +9,7 @@ import type {
   SaveWeeklySplitPayload,
   SyncMutation,
   UpdateExerciseInput,
+  UpdateSettingsPayload,
   UpsertRoutinePayload,
   UpsertScheduledWorkoutPayload,
 } from "@/lib/validation/schemas";
@@ -25,6 +26,7 @@ export const MUTATION_PRIORITY: Record<SyncMutation["type"], number> = {
   DELETE_SCHEDULED_WORKOUT: 32,
   FINISH_WORKOUT: 40,
   DELETE_WORKOUT: 41,
+  UPDATE_SETTINGS: 50,
 };
 
 interface OutboxBase {
@@ -80,6 +82,10 @@ export type OutboxItem =
   | (OutboxBase & {
       type: "DELETE_WORKOUT";
       payload: DeleteWorkoutPayload;
+    })
+  | (OutboxBase & {
+      type: "UPDATE_SETTINGS";
+      payload: UpdateSettingsPayload;
     });
 
 export function buildOutboxItem(
@@ -133,6 +139,12 @@ export function buildOutboxItem(
       return {
         ...base,
         type: "DELETE_WORKOUT",
+        payload: mutation.payload,
+      };
+    case "UPDATE_SETTINGS":
+      return {
+        ...base,
+        type: "UPDATE_SETTINGS",
         payload: mutation.payload,
       };
   }
@@ -265,6 +277,13 @@ export function toSyncMutation(item: OutboxItem): SyncMutation {
       return {
         id: item.id,
         type: "DELETE_WORKOUT",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "UPDATE_SETTINGS":
+      return {
+        id: item.id,
+        type: "UPDATE_SETTINGS",
         clientUpdatedAt: item.clientUpdatedAt,
         payload: item.payload,
       };
