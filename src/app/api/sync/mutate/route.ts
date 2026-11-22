@@ -382,6 +382,127 @@ export async function POST(request: NextRequest) {
           appliedIds.push(mutation.id);
           break;
         }
+
+        case "FINISH_WORKOUT": {
+          const { payload } = mutation;
+          const { error: workoutErr } = await supabase.from("workouts").upsert(
+            {
+              id: payload.id,
+              routine_id: payload.routine_id,
+              name: payload.name,
+              notes: payload.notes,
+              status: "completed",
+              workout_date: payload.workout_date,
+              started_at: payload.started_at,
+              completed_at: payload.completed_at,
+              duration_seconds: payload.duration_seconds,
+              weight_unit: payload.weight_unit,
+              client_updated_at: mutation.clientUpdatedAt,
+            },
+            { onConflict: "id" }
+          );
+
+          if (workoutErr) {
+            return NextResponse.json(
+              { error: workoutErr.message },
+              { status: 500 }
+            );
+          }
+
+          const { error: clearSetsErr } = await supabase
+            .from("workout_sets")
+            .delete()
+            .eq("workout_id", payload.id);
+
+          if (clearSetsErr) {
+            return NextResponse.json(
+              { error: clearSetsErr.message },
+              { status: 500 }
+            );
+          }
+
+          const completedSets = payload.sets
+            .filter((s) => s.is_completed)
+            .sort((a, b) => {
+              if (a.exercise_order !== b.exercise_order) {
+                return a.exercise_order - b.exercise_order;
+              }
+              return a.set_number - b.set_number;
+            });
+
+          if (completedSets.length > 0) {
+            const exerciseOrderMap = new Map<number, number>();
+            const setCounterByOrder = new Map<number, number>();
+            let nextExOrder = 0;
+
+            const normalizedRows = completedSets.map((s) => {
+              let seqOrder = exerciseOrderMap.get(s.exercise_order);
+              if (seqOrder === undefined) {
+                seqOrder = nextExOrder;
+                nextExOrder += 1;
+                exerciseOrderMap.set(s.exercise_order, seqOrder);
+              }
+
+              const seqSetNumber = (setCounterByOrder.get(seqOrder) ?? 0) + 1;
+              setCounterByOrder.set(seqOrder, seqSetNumber);
+
+              return {
+                id: s.id,
+                workout_id: payload.id,
+                exercise_id: s.exercise_id,
+                exercise_order: seqOrder,
+                superset_group: s.superset_group,
+                set_number: seqSetNumber,
+                set_type: s.set_type,
+                weight: s.weight,
+                reps: s.reps,
+                rpe: s.rpe,
+                duration_seconds: s.duration_seconds,
+                rest_seconds: s.rest_seconds,
+                is_completed: true,
+                completed_at: s.completed_at ?? payload.completed_at,
+                notes: s.notes,
+                client_updated_at: mutation.clientUpdatedAt,
+              };
+            });
+
+            const { error: insertSetsErr } = await supabase
+              .from("workout_sets")
+              .insert(normalizedRows);
+
+            if (insertSetsErr) {
+              return NextResponse.json(
+                { error: insertSetsErr.message },
+                { status: 500 }
+              );
+            }
+          }
+
+          const { error: finalizeErr } = await supabase.rpc(
+            "finalize_workout_stats",
+            {
+              p_workout_id: payload.id,
+              p_scheduled_workout_id: payload.scheduled_workout_id,
+            }
+          );
+
+          if (finalizeErr) {
+            return NextResponse.json(
+              { error: finalizeErr.message },
+              { status: 500 }
+            );
+          }
+
+          touchedDomains.add("workouts");
+          if (payload.routine_id) {
+            touchedDomains.add("routines");
+          }
+          if (payload.scheduled_workout_id) {
+            touchedDomains.add("schedule");
+          }
+          appliedIds.push(mutation.id);
+          break;
+        }
       }
     }
 

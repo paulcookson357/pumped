@@ -268,12 +268,36 @@ describe("outbox coalescing and ordering", () => {
       40
     );
 
-    const sorted = sortOutboxItems([scheduled, split, routine, exercise]);
+    const workout = buildOutboxItem(
+      {
+        id: "m-workout",
+        type: "FINISH_WORKOUT",
+        clientUpdatedAt: "2026-11-22T10:45:00.000Z",
+        payload: {
+          id: "44444444-4444-4444-8444-444444444444",
+          routine_id: routineId,
+          scheduled_workout_id: scheduleId,
+          name: "Push A",
+          notes: null,
+          workout_date: "2026-11-23",
+          started_at: "2026-11-23T09:00:00.000Z",
+          completed_at: "2026-11-23T09:45:00.000Z",
+          duration_seconds: 2700,
+          weight_unit: "kg",
+          sets: [],
+        },
+      },
+      "workout:44444444-4444-4444-8444-444444444444",
+      5
+    );
+
+    const sorted = sortOutboxItems([workout, scheduled, split, routine, exercise]);
     expect(sorted.map((s) => s.id)).toEqual([
       "m-ex",
       "m-routine",
       "m-split",
       "m-sched",
+      "m-workout",
     ]);
   });
 

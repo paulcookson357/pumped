@@ -85,6 +85,9 @@ export async function hydrateFromIndexedDB(): Promise<void> {
       item.type === "UPSERT_SCHEDULED_WORKOUT" ||
       item.type === "DELETE_SCHEDULED_WORKOUT"
   );
+  const hasWorkoutOutbox = local.outbox.some(
+    (item) => item.type === "FINISH_WORKOUT"
+  );
   const hasAnyCachedData =
     local.exercises.length > 0 ||
     local.routines.length > 0 ||
@@ -98,6 +101,7 @@ export async function hydrateFromIndexedDB(): Promise<void> {
       preserveNonEmptyExercises: !hasExerciseOutbox,
       preserveNonEmptyRoutines: !hasRoutineOutbox,
       preserveNonEmptySchedule: !hasScheduleOutbox,
+      preserveNonEmptyWorkouts: !hasWorkoutOutbox,
     });
   }
   useSyncStore.getState().setPendingCount(local.outbox.length);

@@ -3,6 +3,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import { SyncBootstrap } from "@/components/pwa/SyncBootstrap";
+import { ActiveWorkoutHost } from "@/components/workout/ActiveWorkoutHost";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default function RootLayout({
         <SyncBootstrap />
         <TopHeader />
         <main className="w-full px-4 pt-4 pb-24 sm:px-6">{children}</main>
+        <ActiveWorkoutHost />
         <BottomNav />
       </body>
     </html>

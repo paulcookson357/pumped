@@ -46,10 +46,19 @@ function sortScheduledWorkouts(items: ScheduledWorkout[]): ScheduledWorkout[] {
   );
 }
 
+function sortWorkoutsDesc(items: Workout[]): Workout[] {
+  return [...items].sort((a, b) => {
+    const tA = a.completed_at ?? a.created_at;
+    const tB = b.completed_at ?? b.created_at;
+    return tB.localeCompare(tA);
+  });
+}
+
 interface HydrateOptions {
   preserveNonEmptyExercises?: boolean;
   preserveNonEmptyRoutines?: boolean;
   preserveNonEmptySchedule?: boolean;
+  preserveNonEmptyWorkouts?: boolean;
 }
 
 interface AppDataState {
@@ -86,6 +95,8 @@ interface AppDataState {
     weeklySplitRules: WeeklySplitRule[],
     scheduledWorkouts: ScheduledWorkout[]
   ) => void;
+  setWorkoutsBundle: (workouts: Workout[], workoutSets: WorkoutSet[]) => void;
+  setSettings: (settings: AppSettings | null) => void;
   upsertExerciseOptimistic: (exercise: Exercise) => void;
   archiveExerciseOptimistic: (id: string) => void;
   upsertRoutineOptimistic: (
@@ -101,6 +112,11 @@ interface AppDataState {
   }) => void;
   upsertScheduledWorkoutOptimistic: (item: ScheduledWorkout) => void;
   deleteScheduledWorkoutOptimistic: (id: string) => void;
+  completeWorkoutOptimistic: (params: {
+    workout: Workout;
+    sets: WorkoutSet[];
+    scheduledWorkoutId?: string | null;
+  }) => void;
 }
 
 export const useAppDataStore = create<AppDataState>((set) => ({
@@ -133,6 +149,10 @@ export const useAppDataStore = create<AppDataState>((set) => ({
         data.scheduledWorkouts.length === 0 &&
         (state.weeklySplitRules.length > 0 ||
           state.scheduledWorkouts.length > 0);
+      const keepWorkouts =
+        Boolean(options?.preserveNonEmptyWorkouts) &&
+        data.workouts.length === 0 &&
+        state.workouts.length > 0;
 
       return {
         hydrated: true,
@@ -152,8 +172,10 @@ export const useAppDataStore = create<AppDataState>((set) => ({
         scheduledWorkouts: keepSchedule
           ? state.scheduledWorkouts
           : sortScheduledWorkouts(data.scheduledWorkouts),
-        workouts: data.workouts,
-        workoutSets: data.workoutSets,
+        workouts: keepWorkouts
+          ? state.workouts
+          : sortWorkoutsDesc(data.workouts),
+        workoutSets: keepWorkouts ? state.workoutSets : data.workoutSets,
         settings: data.settings,
       };
     }),
@@ -183,7 +205,7 @@ export const useAppDataStore = create<AppDataState>((set) => ({
           : state.scheduledWorkouts,
       workouts:
         payload.workouts !== undefined
-          ? payload.workouts.workouts
+          ? sortWorkoutsDesc(payload.workouts.workouts)
           : state.workouts,
       workoutSets:
         payload.workouts !== undefined
@@ -211,6 +233,19 @@ export const useAppDataStore = create<AppDataState>((set) => ({
       weeklySplitRules: sortWeeklySplitRules(weeklySplitRules),
       scheduledWorkouts: sortScheduledWorkouts(scheduledWorkouts),
       touchedDomains: { ...state.touchedDomains, schedule: true },
+    })),
+
+  setWorkoutsBundle: (workouts, workoutSets) =>
+    set((state) => ({
+      workouts: sortWorkoutsDesc(workouts),
+      workoutSets,
+      touchedDomains: { ...state.touchedDomains, workouts: true },
+    })),
+
+  setSettings: (settings) =>
+    set((state) => ({
+      settings,
+      touchedDomains: { ...state.touchedDomains, settings: true },
     })),
 
   upsertExerciseOptimistic: (exercise) =>
@@ -311,4 +346,55 @@ export const useAppDataStore = create<AppDataState>((set) => ({
       scheduledWorkouts: state.scheduledWorkouts.filter((sw) => sw.id !== id),
       touchedDomains: { ...state.touchedDomains, schedule: true },
     })),
+
+  completeWorkoutOptimistic: ({ workout, sets, scheduledWorkoutId }) =>
+    set((state) => {
+      const completedStamp = workout.completed_at ?? workout.updated_at;
+      const nextWorkouts = sortWorkoutsDesc([
+        ...state.workouts.filter((w) => w.id !== workout.id),
+        workout,
+      ]);
+      const nextWorkoutSets = [
+        ...state.workoutSets.filter((ws) => ws.workout_id !== workout.id),
+        ...sets,
+      ];
+
+      const nextRoutines = workout.routine_id
+        ? state.routines.map((r) =>
+            r.id === workout.routine_id
+              ? {
+                  ...r,
+                  last_performed_at: completedStamp,
+                  updated_at: completedStamp,
+                }
+              : r
+          )
+        : state.routines;
+
+      const nextScheduled = scheduledWorkoutId
+        ? state.scheduledWorkouts.map((sw) =>
+            sw.id === scheduledWorkoutId
+              ? {
+                  ...sw,
+                  status: "completed" as const,
+                  workout_id: workout.id,
+                  updated_at: completedStamp,
+                }
+              : sw
+          )
+        : state.scheduledWorkouts;
+
+      return {
+        workouts: nextWorkouts,
+        workoutSets: nextWorkoutSets,
+        routines: nextRoutines,
+        scheduledWorkouts: nextScheduled,
+        touchedDomains: {
+          ...state.touchedDomains,
+          workouts: true,
+          ...(workout.routine_id ? { routines: true } : {}),
+          ...(scheduledWorkoutId ? { schedule: true } : {}),
+        },
+      };
+    }),
 }));

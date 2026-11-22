@@ -460,6 +460,133 @@ export async function deleteLocalScheduledWorkout(id: string): Promise<void> {
   await db.delete("scheduled_workouts", id);
 }
 
+export async function getLocalPreviousPerformance(
+  exerciseIds: string[]
+): Promise<Record<string, PreviousPerformanceRecord>> {
+  const db = await getDB();
+  if (!db || exerciseIds.length === 0) return {};
+
+  const tx = db.transaction("previous_performance", "readonly");
+  const records = await Promise.all(
+    exerciseIds.map((id) => tx.store.get(id))
+  );
+  await tx.done;
+
+  const map: Record<string, PreviousPerformanceRecord> = {};
+  for (const record of records) {
+    if (record) {
+      map[record.exercise_id] = record;
+    }
+  }
+  return map;
+}
+
+export async function putLocalPreviousPerformance(
+  records: PreviousPerformanceRecord[]
+): Promise<void> {
+  const db = await getDB();
+  if (!db || records.length === 0) return;
+
+  const tx = db.transaction("previous_performance", "readwrite");
+  for (const record of records) {
+    await tx.store.put(record);
+  }
+  await tx.done;
+}
+
+export async function putLocalCompletedWorkout(params: {
+  workout: Workout;
+  sets: WorkoutSet[];
+  scheduledWorkoutId?: string | null;
+}): Promise<void> {
+  const db = await getDB();
+  if (!db) return;
+
+  const { workout, sets, scheduledWorkoutId } = params;
+  const tx = db.transaction(
+    [
+      "workouts",
+      "workout_sets",
+      "previous_performance",
+      "routines",
+      "scheduled_workouts",
+    ],
+    "readwrite"
+  );
+
+  await tx.objectStore("workouts").put(workout);
+
+  const setsStore = tx.objectStore("workout_sets");
+  for (const existing of await setsStore.getAll()) {
+    if (existing.workout_id === workout.id) {
+      await setsStore.delete(existing.id);
+    }
+  }
+  for (const ws of sets) {
+    await setsStore.put(ws);
+  }
+
+  // Update cached previous_performance per exercise for instant subsequent workouts offline
+  const byExercise = new Map<string, WorkoutSet[]>();
+  for (const ws of sets) {
+    if (!ws.is_completed) continue;
+    const list = byExercise.get(ws.exercise_id) ?? [];
+    list.push(ws);
+    byExercise.set(ws.exercise_id, list);
+  }
+
+  const prevStore = tx.objectStore("previous_performance");
+  const completedStamp = workout.completed_at ?? workout.updated_at;
+  for (const [exerciseId, exSets] of byExercise.entries()) {
+    const ordered = [...exSets].sort((a, b) => {
+      if (a.exercise_order !== b.exercise_order) {
+        return a.exercise_order - b.exercise_order;
+      }
+      return a.set_number - b.set_number;
+    });
+    await prevStore.put({
+      exercise_id: exerciseId,
+      workout_id: workout.id,
+      updated_at: completedStamp,
+      sets: ordered.map((s) => ({
+        set_number: s.set_number,
+        set_type: s.set_type,
+        weight: s.weight,
+        reps: s.reps,
+        rpe: s.rpe,
+        duration_seconds: s.duration_seconds,
+      })),
+    });
+  }
+
+  if (workout.routine_id) {
+    const routineStore = tx.objectStore("routines");
+    const routine = await routineStore.get(workout.routine_id);
+    if (routine) {
+      await routineStore.put({
+        ...routine,
+        last_performed_at: completedStamp,
+        updated_at: completedStamp,
+      });
+    }
+  }
+
+  if (scheduledWorkoutId) {
+    const schedStore = tx.objectStore("scheduled_workouts");
+    const scheduled = await schedStore.get(scheduledWorkoutId);
+    if (scheduled) {
+      await schedStore.put({
+        ...scheduled,
+        status: "completed",
+        workout_id: workout.id,
+        updated_at: completedStamp,
+      });
+    }
+  }
+
+  await tx.done;
+}
+
 export async function getOutboxItem(
   key: string
 ): Promise<OutboxItem | undefined> {

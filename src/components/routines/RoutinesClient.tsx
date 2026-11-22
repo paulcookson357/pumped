@@ -7,6 +7,7 @@ import {
   CalendarRange,
   ChevronRight,
   ClipboardList,
+  Play,
   Plus,
 } from "lucide-react";
 import { RoutineEditorModal } from "@/components/routines/RoutineEditorModal";
@@ -23,6 +24,7 @@ import type {
   ScheduledWorkout,
   WeeklySplitRule,
 } from "@/lib/types/domain";
+import { useActiveWorkoutStore } from "@/stores/useActiveWorkoutStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useSyncStore } from "@/stores/useSyncStore";
 
@@ -54,6 +56,11 @@ export function RoutinesClient({
     settings: storeSettings,
   } = useAppDataStore();
   const pendingCount = useSyncStore((state) => state.pendingCount);
+  const {
+    activeWorkout,
+    requestStartWorkout,
+    openSheet,
+  } = useActiveWorkoutStore();
 
   const shouldReconcileExercises =
     hydrated &&
@@ -298,6 +305,29 @@ export function RoutinesClient({
         </div>
       </button>
 
+      {/* Borderless full-bleed quick-start strip */}
+      <div className="-mx-4 border-b border-zinc-200 bg-white px-4 py-2.5 sm:-mx-6 sm:px-6">
+        <button
+          type="button"
+          onClick={() =>
+            activeWorkout
+              ? openSheet()
+              : requestStartWorkout({
+                  name: "Quick Workout",
+                  appSettings: storeSettings ?? initialSettings,
+                })
+          }
+          className="flex min-h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-4 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100/70"
+        >
+          <Play className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          <span>
+            {activeWorkout
+              ? `Resume "${activeWorkout.name}"`
+              : "Start Empty Workout"}
+          </span>
+        </button>
+      </div>
+
       {/* Borderless full-bleed routine list */}
       {routines.length > 0 ? (
         <ul className="-mx-4 divide-y divide-zinc-200 border-b border-zinc-200 sm:-mx-6">
@@ -354,7 +384,30 @@ export function RoutinesClient({
                   )}
                 </button>
 
-                <div className="flex shrink-0 items-center pr-2 sm:pr-4">
+                <div className="flex shrink-0 items-center gap-1 pr-2 sm:pr-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      activeWorkout?.routineId === routine.id &&
+                      activeWorkout.scheduledWorkoutId === null
+                        ? openSheet()
+                        : requestStartWorkout({
+                            routine,
+                            routineExercises: items,
+                            appSettings: storeSettings ?? initialSettings,
+                          })
+                    }
+                    aria-label={`Start ${routine.name}`}
+                    className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-500"
+                  >
+                    <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>
+                      {activeWorkout?.routineId === routine.id &&
+                      activeWorkout.scheduledWorkoutId === null
+                        ? "Resume"
+                        : "Start"}
+                    </span>
+                  </button>
                   {routines.length > 1 && (
                     <div className="flex items-center">
                       <button
@@ -362,7 +415,7 @@ export function RoutinesClient({
                         disabled={idx === 0}
                         onClick={() => void handleReorderRoutine(idx, -1)}
                         aria-label={`Move ${routine.name} up`}
-                        className="flex h-10 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-25"
+                        className="flex h-10 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-25"
                       >
                         <ArrowUp className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -371,7 +424,7 @@ export function RoutinesClient({
                         disabled={idx === routines.length - 1}
                         onClick={() => void handleReorderRoutine(idx, 1)}
                         aria-label={`Move ${routine.name} down`}
-                        className="flex h-10 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-25"
+                        className="flex h-10 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-25"
                       >
                         <ArrowDown className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -381,7 +434,7 @@ export function RoutinesClient({
                     type="button"
                     onClick={() => openEditRoutine(routine)}
                     aria-label={`Edit ${routine.name}`}
-                    className="flex h-10 w-9 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700"
+                    className="flex h-10 w-8 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700"
                   >
                     <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </button>

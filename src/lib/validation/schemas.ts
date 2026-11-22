@@ -83,6 +83,10 @@ export const hexColorSchema = z
 
 export const scheduleStatusSchema = z.enum(["planned", "completed", "skipped"]);
 
+export const setTypeSchema = z.enum(["warmup", "normal", "dropset", "failure"]);
+
+export const weightUnitSchema = z.enum(["kg", "lbs"]);
+
 export const createExerciseInputSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1, "Exercise name is required").max(80),
@@ -193,6 +197,49 @@ export const deleteScheduledWorkoutPayloadSchema = z.object({
   id: z.string().uuid(),
 });
 
+export const workoutSetInputSchema = z.object({
+  id: z.string().uuid(),
+  exercise_id: z.string().uuid(),
+  exercise_order: z.number().int().min(0).max(500),
+  superset_group: z.number().int().min(1).max(50).nullable().default(null),
+  set_number: z.number().int().min(1).max(100),
+  set_type: setTypeSchema.default("normal"),
+  weight: z.number().min(0).max(5000).nullable().default(null),
+  reps: z.number().int().min(0).max(5000).nullable().default(null),
+  rpe: z
+    .number()
+    .min(5)
+    .max(10)
+    .refine((v) => Math.round(v * 2) === v * 2, {
+      message: "RPE must be in 0.5 increments",
+    })
+    .nullable()
+    .default(null),
+  duration_seconds: z.number().int().min(0).max(86400).nullable().default(null),
+  rest_seconds: z.number().int().min(0).max(900).nullable().default(null),
+  is_completed: z.boolean().default(true),
+  completed_at: z.string().datetime().nullable().default(null),
+  notes: optionalTrimmedTextSchema(400).optional().default(null),
+});
+
+export const finishWorkoutPayloadSchema = z.object({
+  id: z.string().uuid(),
+  routine_id: z.string().uuid().nullable().default(null),
+  scheduled_workout_id: z.string().uuid().nullable().default(null),
+  name: z.string().trim().min(1, "Workout name is required").max(80),
+  notes: optionalTrimmedTextSchema(500).optional().default(null),
+  workout_date: localDateSchema,
+  started_at: z.string().datetime(),
+  completed_at: z.string().datetime(),
+  duration_seconds: z.number().int().min(0).max(86400),
+  weight_unit: weightUnitSchema.default("kg"),
+  sets: z.array(workoutSetInputSchema).max(500),
+});
+
+export const previousExerciseSetsRequestSchema = z.object({
+  exerciseIds: z.array(z.string().uuid()).min(1).max(100),
+});
+
 export const syncMutationSchema = z.discriminatedUnion("type", [
   z.object({
     id: z.string().min(1),
@@ -248,6 +295,12 @@ export const syncMutationSchema = z.discriminatedUnion("type", [
     clientUpdatedAt: z.string().datetime(),
     payload: deleteScheduledWorkoutPayloadSchema,
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("FINISH_WORKOUT"),
+    clientUpdatedAt: z.string().datetime(),
+    payload: finishWorkoutPayloadSchema,
+  }),
 ]);
 
 export const syncMutateRequestSchema = z.object({
@@ -271,3 +324,5 @@ export type UpsertScheduledWorkoutPayload = z.infer<
 export type DeleteScheduledWorkoutPayload = z.infer<
   typeof deleteScheduledWorkoutPayloadSchema
 >;
+export type WorkoutSetInput = z.infer<typeof workoutSetInputSchema>;
+export type FinishWorkoutPayload = z.infer<typeof finishWorkoutPayloadSchema>;

@@ -3,6 +3,7 @@ import {
   getCachedExercises,
   getCachedRoutines,
   getCachedSchedule,
+  getCachedSettings,
   getCachedWorkouts,
 } from "@/lib/cache/loaders";
 import { toLocalDateString } from "@/lib/dates/localDate";
@@ -12,13 +13,19 @@ export const dynamic = "force-dynamic";
 
 export default async function CalendarHomePage() {
   const configured = isSupabaseConfigured();
-  const [routinesBundle, scheduleBundle, initialExercises, workoutsBundle] =
-    await Promise.all([
-      getCachedRoutines(),
-      getCachedSchedule(),
-      getCachedExercises(),
-      getCachedWorkouts(),
-    ]);
+  const [
+    routinesBundle,
+    scheduleBundle,
+    initialExercises,
+    workoutsBundle,
+    initialSettings,
+  ] = await Promise.all([
+    getCachedRoutines(),
+    getCachedSchedule(),
+    getCachedExercises(),
+    getCachedWorkouts(),
+    getCachedSettings(),
+  ]);
 
   const serverTodayDate = toLocalDateString(new Date());
 
@@ -32,6 +39,7 @@ export default async function CalendarHomePage() {
       initialWeeklySplitRules={scheduleBundle.weeklySplitRules}
       initialScheduledWorkouts={scheduleBundle.scheduledWorkouts}
       initialWorkouts={workoutsBundle.workouts}
+      initialSettings={initialSettings}
     />
   );
 }

@@ -16,6 +16,7 @@ import { useAppDataStore } from "@/stores/useAppDataStore";
 interface ExerciseDetailDrawerProps {
   exercise: Exercise | null;
   readOnly?: boolean;
+  zIndexClass?: string;
   onClose: () => void;
   onEdit: (exercise: Exercise) => void;
 }
@@ -23,6 +24,7 @@ interface ExerciseDetailDrawerProps {
 export function ExerciseDetailDrawer({
   exercise,
   readOnly = false,
+  zIndexClass = "z-50",
   onClose,
   onEdit,
 }: ExerciseDetailDrawerProps) {
@@ -67,7 +69,7 @@ export function ExerciseDetailDrawer({
       role="dialog"
       aria-modal="true"
       aria-label={exercise.name}
-      className="fixed inset-0 z-50 flex h-dvh w-full flex-col bg-white"
+      className={`fixed inset-0 ${zIndexClass} flex h-dvh w-full flex-col bg-white`}
     >
       {/* Full-page modal sticky header */}
       <header className="pt-safe shrink-0 border-b border-zinc-200 bg-white">

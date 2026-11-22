@@ -28,6 +28,22 @@ export function formatSupersetLabel(
   return letter;
 }
 
+export const SUPERSET_COLORS = [
+  "#7C3AED", // Violet (A)
+  "#2563EB", // Blue (B)
+  "#D97706", // Amber (C)
+  "#E11D48", // Rose (D)
+  "#059669", // Emerald (E)
+  "#475569", // Slate (F)
+] as const;
+
+export function getSupersetColor(supersetGroup: number | null): string | null {
+  if (supersetGroup === null || supersetGroup < 1) {
+    return null;
+  }
+  return SUPERSET_COLORS[(supersetGroup - 1) % SUPERSET_COLORS.length] ?? "#7C3AED";
+}
+
 export function getNextSupersetGroup(
   items: Array<{ superset_group: number | null }>
 ): number {

@@ -9,6 +9,7 @@ import {
   CalendarRange,
   CheckCircle2,
   Database,
+  Play,
   Plus,
   RotateCcw,
   Trash2,
@@ -32,6 +33,7 @@ import {
 import { enqueueAndSync } from "@/lib/offline/syncEngine";
 import { getSupersetPositions } from "@/lib/routines/supersets";
 import type {
+  AppSettings,
   Exercise,
   Routine,
   RoutineExercise,
@@ -39,6 +41,7 @@ import type {
   WeeklySplitRule,
   Workout,
 } from "@/lib/types/domain";
+import { useActiveWorkoutStore } from "@/stores/useActiveWorkoutStore";
 import { useAppDataStore } from "@/stores/useAppDataStore";
 import { useSyncStore } from "@/stores/useSyncStore";
 
@@ -51,6 +54,7 @@ interface CalendarHubClientProps {
   initialWeeklySplitRules: WeeklySplitRule[];
   initialScheduledWorkouts: ScheduledWorkout[];
   initialWorkouts: Workout[];
+  initialSettings: AppSettings | null;
 }
 
 function formatRepPrescription(row: RoutineExercise): string {
@@ -75,6 +79,7 @@ export function CalendarHubClient({
   initialWeeklySplitRules,
   initialScheduledWorkouts,
   initialWorkouts,
+  initialSettings,
 }: CalendarHubClientProps) {
   const {
     hydrated,
@@ -85,8 +90,14 @@ export function CalendarHubClient({
     weeklySplitRules: storeSplitRules,
     scheduledWorkouts: storeScheduled,
     workouts: storeWorkouts,
+    settings: storeSettings,
   } = useAppDataStore();
   const pendingCount = useSyncStore((state) => state.pendingCount);
+  const {
+    activeWorkout,
+    requestStartWorkout,
+    openSheet,
+  } = useActiveWorkoutStore();
 
   const shouldReconcileExercises =
     hydrated &&
@@ -110,6 +121,19 @@ export function CalendarHubClient({
     (initialWeeklySplitRules.length > 0 ||
       initialScheduledWorkouts.length > 0) &&
     pendingCount === 0;
+
+  const shouldReconcileWorkouts =
+    hydrated &&
+    !touchedDomains.workouts &&
+    storeWorkouts.length === 0 &&
+    initialWorkouts.length > 0 &&
+    pendingCount === 0;
+
+  const shouldReconcileSettings =
+    hydrated &&
+    !touchedDomains.settings &&
+    storeSettings === null &&
+    initialSettings !== null;
 
   useEffect(() => {
     if (shouldReconcileExercises) {
@@ -146,6 +170,19 @@ export function CalendarHubClient({
     }
   }, [shouldReconcileSchedule, initialWeeklySplitRules, initialScheduledWorkouts]);
 
+  useEffect(() => {
+    if (shouldReconcileWorkouts) {
+      useAppDataStore.getState().setWorkoutsBundle(initialWorkouts, []);
+    }
+  }, [shouldReconcileWorkouts, initialWorkouts]);
+
+  useEffect(() => {
+    if (shouldReconcileSettings && initialSettings) {
+      useAppDataStore.getState().setSettings(initialSettings);
+      void writeDomainSnapshot({ settings: initialSettings });
+    }
+  }, [shouldReconcileSettings, initialSettings]);
+
   const routines =
     !hydrated || shouldReconcileRoutines ? initialRoutines : storeRoutines;
   const routineExercises =
@@ -163,9 +200,8 @@ export function CalendarHubClient({
       ? initialScheduledWorkouts
       : storeScheduled;
   const workouts =
-    !hydrated || (storeWorkouts.length === 0 && initialWorkouts.length > 0)
-      ? initialWorkouts
-      : storeWorkouts;
+    !hydrated || shouldReconcileWorkouts ? initialWorkouts : storeWorkouts;
+  const effectiveSettings = storeSettings ?? initialSettings;
 
   const initialParsed = parseLocalDate(serverTodayDate);
   const [todayDate, setTodayDate] = useState(serverTodayDate);
@@ -436,14 +472,30 @@ export function CalendarHubClient({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={openNewScheduleModal}
-            className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Assign</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                requestStartWorkout({
+                  workoutDate: selectedDate,
+                  name: "Quick Workout",
+                  appSettings: effectiveSettings,
+                })
+              }
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+            >
+              <Play className="h-3 w-3" aria-hidden="true" />
+              <span>Empty</span>
+            </button>
+            <button
+              type="button"
+              onClick={openNewScheduleModal}
+              className="inline-flex min-h-[36px] items-center gap-1 rounded-full border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Assign</span>
+            </button>
+          </div>
         </div>
 
         {selectedDaySchedules.length > 0 ||
@@ -554,52 +606,83 @@ export function CalendarHubClient({
 
                     {/* Management actions */}
                     {scheduleItem.status !== "completed" && (
-                      <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 px-4 py-2.5 sm:px-5">
-                        <button
-                          type="button"
-                          onClick={() => openMoveScheduleModal(scheduleItem)}
-                          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                        >
-                          <ArrowRightLeft
-                            className="h-3.5 w-3.5"
-                            aria-hidden="true"
-                          />
-                          <span>Move Date</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleSkip(scheduleItem)}
-                          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                        >
-                          {scheduleItem.status === "skipped" ? (
-                            <>
-                              <RotateCcw
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                              <span>Restore</span>
-                            </>
-                          ) : (
-                            <>
-                              <Ban
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                              <span>Skip</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleRemoveScheduled(scheduleItem)
-                          }
-                          aria-label="Remove scheduled workout"
-                          className="ml-auto inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-700 hover:bg-rose-100"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>Remove</span>
-                        </button>
+                      <div className="space-y-2 border-t border-zinc-100 px-4 py-3 sm:px-5">
+                        {activeWorkout?.scheduledWorkoutId === scheduleItem.id ? (
+                          <button
+                            type="button"
+                            onClick={openSheet}
+                            className="flex min-h-[42px] w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+                          >
+                            <Play className="h-4 w-4" aria-hidden="true" />
+                            <span>Resume Workout</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              requestStartWorkout({
+                                routine: routine ?? null,
+                                routineExercises: rows,
+                                scheduledWorkoutId: scheduleItem.id,
+                                workoutDate: selectedDate,
+                                name: routine?.name ?? "Scheduled Workout",
+                                appSettings: effectiveSettings,
+                              })
+                            }
+                            className="flex min-h-[42px] w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+                          >
+                            <Play className="h-4 w-4" aria-hidden="true" />
+                            <span>Start Workout</span>
+                          </button>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openMoveScheduleModal(scheduleItem)}
+                            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                          >
+                            <ArrowRightLeft
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                            <span>Move Date</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleToggleSkip(scheduleItem)}
+                            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                          >
+                            {scheduleItem.status === "skipped" ? (
+                              <>
+                                <RotateCcw
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                <span>Restore</span>
+                              </>
+                            ) : (
+                              <>
+                                <Ban
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                                <span>Skip</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleRemoveScheduled(scheduleItem)
+                            }
+                            aria-label="Remove scheduled workout"
+                            className="ml-auto inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -647,11 +730,25 @@ export function CalendarHubClient({
                 : "Create your first strength routine to schedule workouts here."}
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() =>
+                  requestStartWorkout({
+                    workoutDate: selectedDate,
+                    name: "Quick Workout",
+                    appSettings: effectiveSettings,
+                  })
+                }
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+              >
+                <Play className="h-4 w-4" aria-hidden="true" />
+                <span>Start Empty Workout</span>
+              </button>
               {routines.length > 0 ? (
                 <button
                   type="button"
                   onClick={openNewScheduleModal}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   <span>Schedule a Routine</span>
@@ -659,7 +756,7 @@ export function CalendarHubClient({
               ) : (
                 <Link
                   href="/routines"
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
                 >
                   Create First Routine
                 </Link>

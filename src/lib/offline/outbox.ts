@@ -3,6 +3,7 @@ import type {
   ArchiveRoutinePayload,
   CreateExerciseInput,
   DeleteScheduledWorkoutPayload,
+  FinishWorkoutPayload,
   ReorderRoutinesPayload,
   SaveWeeklySplitPayload,
   SyncMutation,
@@ -21,6 +22,7 @@ export const MUTATION_PRIORITY: Record<SyncMutation["type"], number> = {
   SAVE_WEEKLY_SPLIT: 30,
   UPSERT_SCHEDULED_WORKOUT: 31,
   DELETE_SCHEDULED_WORKOUT: 32,
+  FINISH_WORKOUT: 40,
 };
 
 interface OutboxBase {
@@ -68,6 +70,10 @@ export type OutboxItem =
   | (OutboxBase & {
       type: "DELETE_SCHEDULED_WORKOUT";
       payload: DeleteScheduledWorkoutPayload;
+    })
+  | (OutboxBase & {
+      type: "FINISH_WORKOUT";
+      payload: FinishWorkoutPayload;
     });
 
 export function buildOutboxItem(
@@ -109,6 +115,12 @@ export function buildOutboxItem(
       return {
         ...base,
         type: "DELETE_SCHEDULED_WORKOUT",
+        payload: mutation.payload,
+      };
+    case "FINISH_WORKOUT":
+      return {
+        ...base,
+        type: "FINISH_WORKOUT",
         payload: mutation.payload,
       };
   }
@@ -219,6 +231,13 @@ export function toSyncMutation(item: OutboxItem): SyncMutation {
       return {
         id: item.id,
         type: "DELETE_SCHEDULED_WORKOUT",
+        clientUpdatedAt: item.clientUpdatedAt,
+        payload: item.payload,
+      };
+    case "FINISH_WORKOUT":
+      return {
+        id: item.id,
+        type: "FINISH_WORKOUT",
         clientUpdatedAt: item.clientUpdatedAt,
         payload: item.payload,
       };
